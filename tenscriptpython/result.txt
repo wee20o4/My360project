@@ -1,0 +1,4 @@
+https://www.google.com => Còn tồn tại (200)
+https://www.thispagedoesnotexist123.com => Không truy cập được (Lỗi: ConnectionError)
+https://www.wikipedia.org => Còn tồn tại (200)
+https://expired.badssl.com => Không truy cập được (Lỗi: SSLError)

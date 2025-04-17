@@ -1,0 +1,4 @@
+valid.email@example.com
+test123@domain.co
+wrong-email@@com
+missingatsymbol.com
