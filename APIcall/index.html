@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/x-icon" href="/path/to/favicon.ico">
+    <title>Google Maps API Example</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            text-align: center;
+        }
+        #map {
+            height: 400px;
+            width: 100%;
+            margin-top: 20px;
+            border: 1px solid #ccc;
+        }
+        #search-box {
+            margin: 20px 0;
+        }
+        input {
+            padding: 10px;
+            width: 70%;
+            font-size: 16px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        #result {
+            margin-top: 10px;
+            color: red;
+        }
+    </style>
+</head>
+<body>
+    <h1>Interactive Google Map</h1>
+    <div id="search-box">
+        <input type="text" id="address" placeholder="Enter address (e.g., Hanoi, Vietnam)">
+        <button onclick="searchAddress()">Search</button>
+    </div>
+    <div id="result"></div>
+    <div id="map"></div>
+
+    <script>
+
+        function updateElementContent(elementId, newContent, styles = {}) {
+            const element = document.getElementById(elementId);
+            if (element) {
+                element.textContent = newContent;
+                Object.assign(element.style, styles);
+            } else {
+                console.error(`Element with ID ${elementId} not found`);
+            }
+        }
+
+        let map;
+        function initMap() {
+            const defaultLocation = { lat: 21.0285, lng: 105.8542 };
+            map = new google.maps.Map(document.getElementById('map'), {
+                center: defaultLocation,
+                zoom: 12
+            });
+        }
+        async function searchAddress() {
+            const address = document.getElementById('address').value;
+            if (!address) {
+                updateElementContent('result', 'Please enter an address', { color: 'red' });
+                return;
+            }
+
+            updateElementContent('result', 'Loading...', { color: 'blue' });
+            const apiKey = 'ABCDE12345';
+            const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${apiKey}`;
+
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (data.status === 'OK') {
+                    const location = data.results[0].geometry.location;
+                    map.setCenter(location);
+                    new google.maps.Marker({
+                        position: location,
+                        map: map,
+                        title: address
+                    });
+                    updateElementContent('result', `Found: ${data.results[0].formatted_address}`, { color: 'green' });
+                } else {
+                    updateElementContent('result', 'Address not found', { color: 'red' });
+                }
+            } catch (error) {
+                updateElementContent('result', 'Error fetching data', { color: 'red' });
+                console.error('Error:', error);
+            }
+        }
+    </script>
+
+    <script async defer
+    src="https://maps.googleapis.com/maps/api/js?key=YOUR_ACTUAL_API_KEY&callback=initMap">
+</script>
+</body>
+</html>
