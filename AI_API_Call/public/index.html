@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DeepL Translator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body
+    class="bg-gradient-to-r from-blue-100 to-purple-100 min-h-screen flex items-center justify-center p-4"
+  >
+    <div class="bg-white rounded-2xl shadow-xl p-8 w-full max-w-lg">
+      <h1 class="text-3xl font-bold text-center text-gray-800 mb-6">
+        DeepL Translator
+      </h1>
+
+      <!-- Input Textarea -->
+      <textarea
+        id="inputText"
+        class="w-full p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:outline-none resize-none"
+        rows="5"
+        placeholder="Enter text to translate..."
+      ></textarea>
+
+      <!-- Language Selection -->
+      <div class="flex items-center justify-between mt-4">
+        <label for="targetLang" class="text-gray-600 font-medium"
+          >Target Language:</label
+        >
+        <select
+          id="targetLang"
+          class="p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:outline-none"
+        >
+          <option value="EN">English</option>
+          <option value="FR">French</option>
+          <option value="DE">German</option>
+          <option value="ES">Spanish</option>
+          <option value="IT">Italian</option>
+          <option value="JA">Japanese</option>
+          <option value="ZH">Chinese</option>
+        </select>
+      </div>
+
+      <!-- Translate Button -->
+      <button
+        onclick="translateText()"
+        class="w-full mt-6 bg-blue-600 text-white font-semibold py-3 rounded-lg hover:bg-blue-700 transition duration-200"
+      >
+        Translate
+      </button>
+
+      <!-- Output Area -->
+      <div
+        id="translatedText"
+        class="mt-6 p-4 bg-gray-50 border border-gray-200 rounded-lg text-gray-800 min-h-[100px]"
+      ></div>
+
+      <!-- Loading Spinner -->
+      <div id="loading" class="hidden mt-4 flex items-center justify-center">
+        <svg
+          class="animate-spin h-6 w-6 text-blue-600"
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+        >
+          <circle
+            class="opacity-25"
+            cx="12"
+            cy="12"
+            r="10"
+            stroke="currentColor"
+            stroke-width="4"
+          ></circle>
+          <path
+            class="opacity-75"
+            fill="currentColor"
+            d="M4 12a8 8 0 018-8v8h8a8 8 0 01-8 8v-8H4z"
+          ></path>
+        </svg>
+      </div>
+    </div>
+
+    <script>
+      async function translateText() {
+        const inputText = document.getElementById("inputText").value;
+        const targetLang = document.getElementById("targetLang").value;
+        const translatedText = document.getElementById("translatedText");
+        const loading = document.getElementById("loading");
+
+        // Reset output và hiển thị loading
+        translatedText.textContent = "";
+        loading.classList.remove("hidden");
+
+        if (!inputText) {
+          translatedText.textContent = "Please enter text to translate.";
+          loading.classList.add("hidden");
+          return;
+        }
+
+        try {
+          const response = await fetch("http://localhost:3000/translate", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              text: inputText,
+              target_lang: targetLang,
+            }),
+          });
+
+          const data = await response.json();
+          loading.classList.add("hidden");
+
+          if (data.translations && data.translations.length > 0) {
+            translatedText.textContent = data.translations[0].text;
+          } else {
+            translatedText.textContent = "Translation failed.";
+          }
+        } catch (error) {
+          loading.classList.add("hidden");
+          translatedText.textContent = "Error: " + error.message;
+        }
+      }
+    </script>
+  </body>
+</html>
