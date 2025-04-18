@@ -3,113 +3,73 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="icon" type="image/x-icon" href="/path/to/favicon.ico">
-    <title>Google Maps API Example</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-            text-align: center;
-        }
-        #map {
-            height: 400px;
-            width: 100%;
-            margin-top: 20px;
-            border: 1px solid #ccc;
-        }
-        #search-box {
-            margin: 20px 0;
-        }
-        input {
-            padding: 10px;
-            width: 70%;
-            font-size: 16px;
-        }
-        button {
-            padding: 10px 20px;
-            font-size: 16px;
-            cursor: pointer;
-            background-color: #007bff;
-            color: white;
-            border: none;
-            border-radius: 5px;
-        }
-        button:hover {
-            background-color: #0056b3;
-        }
-        #result {
-            margin-top: 10px;
-            color: red;
-        }
-    </style>
+    <title>Translation App</title>
+    <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body>
-    <h1>Interactive Google Map</h1>
-    <div id="search-box">
-        <input type="text" id="address" placeholder="Enter address (e.g., Hanoi, Vietnam)">
-        <button onclick="searchAddress()">Search</button>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen">
+    <div class="bg-white p-6 rounded-lg shadow-lg w-full max-w-md">
+        <h1 class="text-2xl font-bold text-center mb-4">Translator</h1>
+        <div class="mb-4">
+            <label for="direction" class="block text-sm font-medium text-gray-700">Translation Direction:</label>
+            <select id="direction" class="mt-1 p-2 border rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="en|vi">English to Vietnamese</option>
+                <option value="vi|en">Vietnamese to English</option>
+            </select>
+        </div>
+        <div class="flex space-x-2 mb-4">
+            <input
+                type="text"
+                id="textInput"
+                placeholder="Enter text to translate"
+                class="flex-1 p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <button
+                onclick="translateText()"
+                class="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600"
+            >
+                Translate
+            </button>
+        </div>
+        <div id="result" class="text-gray-700"></div>
     </div>
-    <div id="result"></div>
-    <div id="map"></div>
 
     <script>
+        async function translateText() {
+            const textInput = document.getElementById("textInput");
+            const direction = document.getElementById("direction").value;
+            const resultDiv = document.getElementById("result");
+            const text = textInput.value.trim();
 
-        function updateElementContent(elementId, newContent, styles = {}) {
-            const element = document.getElementById(elementId);
-            if (element) {
-                element.textContent = newContent;
-                Object.assign(element.style, styles);
-            } else {
-                console.error(`Element with ID ${elementId} not found`);
-            }
-        }
-
-        let map;
-        function initMap() {
-            const defaultLocation = { lat: 21.0285, lng: 105.8542 };
-            map = new google.maps.Map(document.getElementById('map'), {
-                center: defaultLocation,
-                zoom: 12
-            });
-        }
-        async function searchAddress() {
-            const address = document.getElementById('address').value;
-            if (!address) {
-                updateElementContent('result', 'Please enter an address', { color: 'red' });
+            if (!text) {
+                resultDiv.innerHTML = '<p class="text-red-500">Please enter text to translate.</p>';
                 return;
             }
 
-            updateElementContent('result', 'Loading...', { color: 'blue' });
-            const apiKey = 'ABCDE12345';
-            const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${apiKey}`;
+            resultDiv.innerHTML = '<p>Loading...</p>';
 
             try {
-                const response = await fetch(url);
+                const response = await fetch(
+                    `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${direction}`
+                );
                 const data = await response.json();
-                
-                if (data.status === 'OK') {
-                    const location = data.results[0].geometry.location;
-                    map.setCenter(location);
-                    new google.maps.Marker({
-                        position: location,
-                        map: map,
-                        title: address
-                    });
-                    updateElementContent('result', `Found: ${data.results[0].formatted_address}`, { color: 'green' });
-                } else {
-                    updateElementContent('result', 'Address not found', { color: 'red' });
+                if (data.responseStatus !== 200) {
+                    throw new Error("Translation failed");
                 }
+                displayTranslation(data);
             } catch (error) {
-                updateElementContent('result', 'Error fetching data', { color: 'red' });
-                console.error('Error:', error);
+                resultDiv.innerHTML = `<p class="text-red-500">${error.message}</p>`;
+            } finally {
+                textInput.value = "";
             }
         }
-    </script>
 
-    <script async defer
-    src="https://maps.googleapis.com/maps/api/js?key=YOUR_ACTUAL_API_KEY&callback=initMap">
-</script>
+        function displayTranslation(data) {
+            const resultDiv = document.getElementById("result");
+            const translatedText = data.responseData.translatedText || "No translation available";
+            resultDiv.innerHTML = `
+                <p><strong>Translated Text:</strong> ${translatedText}</p>
+            `;
+        }
+    </script>
 </body>
 </html>
