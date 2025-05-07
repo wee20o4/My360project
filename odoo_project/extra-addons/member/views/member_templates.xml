@@ -1,46 +1,55 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-<template id="member_list_template" name="Member List">
-    <t t-call="website.layout">
-        <div class="container mt-4">
-            <h1>Danh sách thành viên</h1>
-            <div class="row">
-                <t t-foreach="members" t-as="member">
-                    <div class="col-md-4 col-sm-6 mb-4">
-                        <div class="card h-100 shadow-sm">
-                            <img
-                                t-att-src="member.image_1920 and '/web/image/res.partner/%s/image_1920' % member.id or '/member/static/img/placeholder.png'"
-                                t-att-alt="'Member Avatar: ' + (member.name or '')"
-                                class="card-img-top rounded-circle mx-auto mt-3"
-                                style="width: 120px; height: 120px; object-fit: cover;"
-                            />
-                            <div class="card-body text-center">
-                                <h5 class="card-title">
-                                    <strong><t t-esc="member.name"/></strong>
-                                </h5>
-                                <p class="card-text">
-                                    <span>Công ty:</span>
-                                    <t t-esc="member.company_name or ''"/>
-                                </p>
-                                <p class="card-text">
-                                    <strong>Ngành nghề:</strong>
-                                    <t t-esc="member.industry_id.name or ''"/>
-                                </p>
-                                <p class="card-text">
-                                    <strong>Địa chỉ:</strong>
-                                    <t t-esc="', '.join(filter(None, [
-                                        member.street or '',
-                                        member.city or '',
-                                        member.state_id.name or '',
-                                        member.country_id.name or ''
-                                    ])) or ''"/>
-                                </p>
+    <template id="member_list_template" name="Member List">
+        <t t-call="website.layout">
+            <div class="container mt-4">
+                <h1>Danh sách thành viên</h1>
+                <div class="row">
+                    <t t-foreach="members" t-as="member">
+                        <div class="col-md-4 col-sm-6 mb-4">
+                            <div class="card h-100 shadow-sm">
+                                <img
+                                    t-att-src="member.image_1920 and '/web/image/res.partner/%s/image_1920' % member.id or '/member/static/img/placeholder.png'"
+                                    t-att-alt="'Member Avatar: ' + (member.name or '')"
+                                    class="card-img-top rounded-circle mx-auto mt-3"
+                                    style="width: 120px; height: 120px; object-fit: cover;"
+                                />
+                                <div class="card-body text-center">
+                                    <h5 class="card-title">
+                                        <strong><t t-esc="member.name"/></strong>
+                                    </h5>
+                                    <p class="card-text">
+                                        <strong>Công ty: </strong>
+                                        <!-- Thử hiển thị theo nhiều cách khác nhau -->
+                                        <t t-if="member.parent_id">
+                                            <t t-esc="member.parent_id.name or ''"/>
+                                        </t>
+                                        <t t-elif="member.company_name">
+                                            <t t-esc="member.company_name"/>
+                                        </t>
+                                        <t t-elif="member.commercial_company_name">
+                                            <t t-esc="member.commercial_company_name"/>
+                                        </t>
+                                    </p>
+                                    <p class="card-text">
+                                        <strong>Ngành nghề: </strong>
+                                        <t t-esc="member.industry_id.name or ''"/>
+                                    </p>
+                                    <p class="card-text">
+                                        <strong>Địa chỉ: </strong>
+                                        <t t-esc="', '.join(filter(None, [
+                                            member.street or '',
+                                            member.city or '',
+                                            member.state_id.name or '',
+                                            member.country_id.name or ''
+                                        ])) or ''"/>
+                                    </p>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                </t>
+                    </t>
+                </div>
             </div>
-        </div>
-    </t>
-</template>
+        </t>
+    </template>
 </odoo>

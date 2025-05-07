@@ -80,22 +80,36 @@ def list_members(self, **kwargs):
 members = request.env['res.partner'].sudo().search([
 ('membership_state', '!=', 'none'),
 ])
+
+# Đảm bảo tất cả thông tin được tải
+for member in members:
+if not member.company_name and member.parent_id:
+member.company_name = member.parent_id.name
+
 return request.render('member.member_list_template', {'members': members})
 ---extra-addons\member\controllers\__init__.py
 from . import main
 ---extra-addons\member\controllers\__pycache__\main.cpython-39.pyc
-[ERROR READING FILE: 'utf-8' codec can't decode byte 0xd3 in position 8: invalid continuation byte]
+[ERROR READING FILE: 'utf-8' codec can't decode byte 0x8c in position 8: invalid start byte]
 ---extra-addons\member\controllers\__pycache__\__init__.cpython-39.pyc
 [ERROR READING FILE: 'utf-8' codec can't decode byte 0xbb in position 9: invalid start byte]
 ---extra-addons\member\models\member.py
-from odoo import fields, models
+from odoo import fields, models, api
 
 class Member(models.Model):
 _inherit = 'res.partner'
 _description = 'Member'
 
 image_1920 = fields.Image(string='Avatar', max_width=1920, max_height=1920)
-company_name = fields.Char(string='Company Name')
+company_name = fields.Char(string='Company Name', store=True)
+@api.depends('parent_id', 'parent_id.name')
+def _compute_company_name(self):
+for partner in self:
+if partner.parent_id:
+partner.company_name = partner.parent_id.name
+elif partner.is_company:
+partner.company_name = partner.name
+
 industry_id = fields.Many2one('res.partner.industry', string='Industry')
 street = fields.Char(string='Street')
 city = fields.Char(string='City')
@@ -104,7 +118,7 @@ country_id = fields.Many2one('res.country', string='Country')
 ---extra-addons\member\models\__init__.py
 from . import member
 ---extra-addons\member\models\__pycache__\member.cpython-39.pyc
-[ERROR READING FILE: 'utf-8' codec can't decode byte 0xdc in position 8: invalid continuation byte]
+[ERROR READING FILE: 'utf-8' codec can't decode byte 0xe3 in position 16: invalid continuation byte]
 ---extra-addons\member\models\__pycache__\__init__.cpython-39.pyc
 [ERROR READING FILE: 'utf-8' codec can't decode byte 0xbb in position 9: invalid start byte]
 ---extra-addons\member\security\ir.model.access.csv
@@ -132,15 +146,24 @@ style="width: 120px; height: 120px; object-fit: cover;"
 <strong><t t-esc="member.name"/></strong>
 </h5>
 <p class="card-text">
-<span>Công ty:</span>
-<t t-esc="member.company_name or ''"/>
+<strong>Công ty: </strong>
+<!-- Thử hiển thị theo nhiều cách khác nhau -->
+<t t-if="member.parent_id">
+<t t-esc="member.parent_id.name or ''"/>
+</t>
+<t t-elif="member.company_name">
+<t t-esc="member.company_name"/>
+</t>
+<t t-elif="member.commercial_company_name">
+<t t-esc="member.commercial_company_name"/>
+</t>
 </p>
 <p class="card-text">
-<strong>Ngành nghề:</strong>
+<strong>Ngành nghề: </strong>
 <t t-esc="member.industry_id.name or ''"/>
 </p>
 <p class="card-text">
-<strong>Địa chỉ:</strong>
+<strong>Địa chỉ: </strong>
 <t t-esc="', '.join(filter(None, [
 member.street or '',
 member.city or '',

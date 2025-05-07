@@ -7,4 +7,10 @@ class MemberController(http.Controller):
         members = request.env['res.partner'].sudo().search([
             ('membership_state', '!=', 'none'),
         ])
+        
+        # Đảm bảo tất cả thông tin được tải
+        for member in members:
+            if not member.company_name and member.parent_id:
+                member.company_name = member.parent_id.name
+                
         return request.render('member.member_list_template', {'members': members})
