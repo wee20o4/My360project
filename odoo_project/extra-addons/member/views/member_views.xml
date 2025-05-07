@@ -2,7 +2,7 @@
 <odoo>
 <record id="member_tree_view" model="ir.ui.view">
     <field name="name">member.tree</field>
-    <field name="model">member.member</field>
+    <field name="model">res.partner</field>
     <field name="arch" type="xml">
         <tree>
             <field name="name"/>
@@ -13,7 +13,7 @@
 
 <record id="member_form_view" model="ir.ui.view">
     <field name="name">member.form</field>
-    <field name="model">member.member</field>
+    <field name="model">res.partner</field>
     <field name="arch" type="xml">
         <form>
             <sheet>
@@ -26,7 +26,7 @@
                     <field name="city"/>
                     <field name="state_id"/>
                     <field name="country_id"/>
-                    <field name="image_1920"/>
+                    <field name="image_1920" widget="image"/>
                 </group>
             </sheet>
         </form>
@@ -35,7 +35,7 @@
 
 <record id="action_member" model="ir.actions.act_window">
     <field name="name">Members</field>
-    <field name="res_model">member.member</field>
+    <field name="res_model">res.partner</field>
     <field name="view_mode">tree,form</field>
     <field name="view_id" eval="False"/>
     <field name="views" eval="[(False, 'tree'), (False, 'form')]"/>
