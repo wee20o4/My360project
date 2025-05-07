@@ -71,6 +71,7 @@ from . import models
 'application': True,
 }
 ---extra-addons\membership_profile_search\controllers\main.py
+# extra-addons/membership_profile_search/controllers/main.py
 from odoo import http
 from odoo.http import request
 from werkzeug.exceptions import NotFound
@@ -83,10 +84,9 @@ members = request.env['res.partner'].sudo().search([
 ('website_published', '=', True),
 ])
 
-# Đảm bảo tất cả thông tin được tải
 for member in members:
 if not member.company_name and member.parent_id:
-member.company_name = member.parent_id.name
+member.company_name = member.parent_id.name or ''
 
 return request.render('membership_profile_search.membership_profile_search_list_template', {
 'members': members,
@@ -95,6 +95,8 @@ return request.render('membership_profile_search.membership_profile_search_list_
 
 @http.route('/partners/<model("res.partner"):partner>', type='http', auth='public', website=True)
 def member_detail(self, partner, **kwargs):
+if not partner.website_published or partner.membership_state == 'none':
+raise NotFound()
 values = {
 'partner': partner,
 'main_object': partner,
@@ -103,10 +105,11 @@ return request.render("website_partner.partner_page", values)
 ---extra-addons\membership_profile_search\controllers\__init__.py
 from . import main
 ---extra-addons\membership_profile_search\controllers\__pycache__\main.cpython-39.pyc
-[ERROR READING FILE: 'utf-8' codec can't decode byte 0x8e in position 8: invalid start byte]
+[ERROR READING FILE: 'utf-8' codec can't decode byte 0xe3 in position 16: invalid continuation byte]
 ---extra-addons\membership_profile_search\controllers\__pycache__\__init__.cpython-39.pyc
 [ERROR READING FILE: 'utf-8' codec can't decode byte 0xbb in position 9: invalid start byte]
 ---extra-addons\membership_profile_search\models\membership_profile_search.py
+# extra-addons/membership_profile_search/models/membership_profile_search.py
 from odoo import fields, models, api
 
 class MembershipProfileSearch(models.Model):
@@ -114,33 +117,37 @@ _inherit = 'res.partner'
 _description = 'Membership Profile Search'
 
 image_1920 = fields.Image(string='Avatar', max_width=1920, max_height=1920)
-company_name = fields.Char(string='Company Name', store=True)
-@api.depends('parent_id', 'parent_id.name')
-def _compute_company_name(self):
-for partner in self:
-if partner.parent_id:
-partner.company_name = partner.parent_id.name
-elif partner.is_company:
-partner.company_name = partner.name
-
+company_name = fields.Char(string='Company Name', store=True, compute='_compute_company_name', readonly=False)
 industry_id = fields.Many2one('res.partner.industry', string='Industry')
 street = fields.Char(string='Street')
 city = fields.Char(string='City')
 state_id = fields.Many2one('res.country.state', string='State')
 country_id = fields.Many2one('res.country', string='Country')
+
+@api.depends('parent_id', 'parent_id.name')
+def _compute_company_name(self):
+for partner in self:
+if partner.parent_id:
+partner.company_name = partner.parent_id.name or ''
+elif partner.is_company:
+partner.company_name = partner.name or ''
+else:
+partner.company_name = ''
 ---extra-addons\membership_profile_search\models\__init__.py
 from . import membership_profile_search
 ---extra-addons\membership_profile_search\models\__pycache__\member.cpython-39.pyc
 [ERROR READING FILE: 'utf-8' codec can't decode byte 0xe3 in position 16: invalid continuation byte]
 ---extra-addons\membership_profile_search\models\__pycache__\membership_profile_search.cpython-39.pyc
-[ERROR READING FILE: 'utf-8' codec can't decode byte 0xec in position 8: invalid continuation byte]
+[ERROR READING FILE: 'utf-8' codec can't decode byte 0xe3 in position 16: invalid continuation byte]
 ---extra-addons\membership_profile_search\models\__pycache__\__init__.cpython-39.pyc
 [ERROR READING FILE: 'utf-8' codec can't decode byte 0xe2 in position 8: invalid continuation byte]
 ---extra-addons\membership_profile_search\security\ir.model.access.csv
+<!-- extra-addons/membership_profile_search/security/ir.model.access.csv -->
 id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
-access_membership_profile_search_public,membership_profile_search.public,model_res_partner,,1,0,0,0
+access_membership_profile_search_public,membership_profile_search.public,model_res_partner,base.group_public,1,0,0,0
+access_membership_profile_search_user,membership_profile_search.user,model_res_partner,base.group_user,1,1,1,0
 ---extra-addons\membership_profile_search\views\membership_profile_search_templates.xml
-<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="UTF-8"?>
 <odoo>
 <template id="membership_profile_search_list_template" name="Membership Profile Search List">
 <t t-call="website.layout">
@@ -169,15 +176,12 @@ var searchTerm = document.getElementById('memberSearchInput').value.toLowerCase(
 var cards = document.querySelectorAll('.card');
 
 cards.forEach(function(card) {
-var name = card.querySelector('.card-title strong').textContent.toLowerCase();
-var company = card.querySelector('.card-text:nth-child(2)').textContent.toLowerCase();
-var industry = card.querySelector('.card-text:nth-child(3)').textContent.toLowerCase();
-var address = card.querySelector('.card-text:nth-child(4)').textContent.toLowerCase();
+var name = card.querySelector('.card-title strong') ? card.querySelector('.card-title strong').textContent.toLowerCase() : '';
+var company = card.querySelector('.card-text:nth-child(2)') ? card.querySelector('.card-text:nth-child(2)').textContent.toLowerCase() : '';
+var industry = card.querySelector('.card-text:nth-child(3)') ? card.querySelector('.card-text:nth-child(3)').textContent.toLowerCase() : '';
+var address = card.querySelector('.card-text:nth-child(4)') ? card.querySelector('.card-text:nth-child(4)').textContent.toLowerCase() : '';
 
-if (name.includes(searchTerm) ||
-company.includes(searchTerm) ||
-industry.includes(searchTerm) ||
-address.includes(searchTerm)) {
+if (name.includes(searchTerm) || company.includes(searchTerm) || industry.includes(searchTerm) || address.includes(searchTerm)) {
 card.parentElement.style.display = 'block';
 } else {
 card.parentElement.style.display = 'none';
@@ -185,7 +189,6 @@ card.parentElement.style.display = 'none';
 });
 }
 
-// Trigger search on Enter key
 document.getElementById('memberSearchInput').addEventListener('keypress', function(e) {
 if (e.key === 'Enter') {
 searchMembers();
@@ -205,7 +208,7 @@ class="card-img-top rounded-circle mx-auto mt-3"
 style="width: 120px; height: 120px; object-fit: cover;"/>
 <div class="card-body text-center">
 <h5 class="card-title">
-<strong><t t-esc="member.name"/></strong>
+<strong><t t-esc="member.name or ''"/></strong>
 </h5>
 <p class="card-text">
 <strong>Công ty: </strong>
@@ -213,11 +216,12 @@ style="width: 120px; height: 120px; object-fit: cover;"/>
 <t t-esc="member.parent_id.name or ''"/>
 </t>
 <t t-elif="member.company_name">
-<t t-esc="member.company_name"/>
+<t t-esc="member.company_name or ''"/>
 </t>
 <t t-elif="member.commercial_company_name">
-<t t-esc="member.commercial_company_name"/>
+<t t-esc="member.commercial_company_name or ''"/>
 </t>
+<t t-else="">-</t>
 </p>
 <p class="card-text">
 <strong>Ngành nghề: </strong>
@@ -225,12 +229,7 @@ style="width: 120px; height: 120px; object-fit: cover;"/>
 </p>
 <p class="card-text">
 <strong>Địa chỉ: </strong>
-<t t-esc="', '.join(filter(None, [
-member.street or '',
-member.city or '',
-member.state_id.name or '',
-member.country_id.name or ''
-])) or ''"/>
+<t t-esc="', '.join(filter(None, [member.street or '', member.city or '', member.state_id.name or '', member.country_id.name or ''])) or ''"/>
 </p>
 </div>
 </a>
@@ -310,8 +309,7 @@ color: #278F84;
 </template>
 </odoo>
 ---extra-addons\membership_profile_search\views\membership_profile_search_views.xml
-<?xml version="1.0" encoding="utf-8"?>
-<odoo>
+<!-- extra-addons/membership_profile_search/views/membership_profile_search_views.xml -->
 <record id="membership_profile_search_tree_view" model="ir.ui.view">
 <field name="name">membership_profile_search.tree</field>
 <field name="model">res.partner</field>
@@ -319,6 +317,14 @@ color: #278F84;
 <tree>
 <field name="name"/>
 <field name="email"/>
+<field name="company_name"/>
+<field name="industry_id"/>
+<field name="street"/>
+<field name="city"/>
+<field name="state_id"/>
+<field name="country_id"/>
+<field name="website_published" invisible="1"/>
+<field name="membership_state" invisible="1"/>
 </tree>
 </field>
 </record>
@@ -339,6 +345,8 @@ color: #278F84;
 <field name="state_id"/>
 <field name="country_id"/>
 <field name="image_1920" widget="image"/>
+<field name="website_published"/>
+<field name="membership_state"/>
 </group>
 </sheet>
 </form>
@@ -351,10 +359,7 @@ color: #278F84;
 <field name="view_mode">tree,form</field>
 <field name="view_id" eval="False"/>
 <field name="views" eval="[(False, 'tree'), (False, 'form')]"/>
+<field name="domain">[('website_published', '=', True), ('membership_state', '!=', 'none')]</field>
 </record>
-
-<menuitem id="menu_membership_profile_search_root" name="Membership Profiles" sequence="10"/>
-<menuitem id="menu_membership_profile_search_list" name="Profile List" parent="menu_membership_profile_search_root" action="action_membership_profile_search" sequence="10"/>
-</odoo>
 ---extra-addons\membership_profile_search\__pycache__\__init__.cpython-39.pyc
 [ERROR READING FILE: 'utf-8' codec can't decode byte 0xc1 in position 8: invalid start byte]
