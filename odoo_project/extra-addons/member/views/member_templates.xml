@@ -1,32 +1,40 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <template id="member_list_template" name="Member List">
-        <t t-call="website.layout">
-            <div class="container mt-4">
-                <h1>Danh sách thành viên</h1>
-                <div class="row">
-                    <t t-foreach="members" t-as="member">
-                        <div class="col-md-4 col-sm-6 mb-4">
-                            <div class="card h-100 shadow-sm">
-                                <!-- Avatar -->
-                                <img t-att-src="member.image_1920 and 'data:image/png;base64,%s' % member.image_1920 or '/web/static/img/placeholder.png'" class="card-img-top rounded-circle mx-auto mt-3" style="width: 120px; height: 120px; object-fit: cover;" alt="Member Avatar"/>
+<meta name="mobile-web-app-capable" content="yes">
+<template id="member_list_template" name="Member List">
+    <t t-call="website.layout">
+        <div class="container mt-4">
+            <h1>Danh sách thành viênn</h1>
+            <div class="row">
+                <t t-foreach="members" t-as="member">
+                    <div class="col-md-4 col-sm-6 mb-4">
+                        <div class="card h-100 shadow-sm">
+                            <img t-att-src="member.image_1920 and '/web/image/member.member/%d/image_1920' % member.id or '/member/static/img/placeholder.png'"
+                                 class="card-img-top rounded-circle mx-auto mt-3"
+                                 style="width: 120px; height: 120px; object-fit: cover;"
+                                 alt="Member Avatar"/>
                                 <div class="card-body text-center">
-                                    <!-- Company Name -->
-                                    <h5 class="card-title"><t t-esc="member.company_name or 'Không có công ty'"/></h5>
-                                    <!-- Name -->
-                                    <p class="card-text"><strong>Tên:</strong> <t t-esc="member.name or 'Không xác định'"/></p>
-                                    <!-- Industry -->
-                                    <p class="card-text"><strong>Ngành nghề:</strong> <t t-esc="member.industry_id.name or 'Không xác định'"/></p>
-                                    <!-- Company Address -->
-                                    <p class="card-text"><strong>Địa chỉ công ty:</strong>
-                                        <t t-esc="', '.join(filter(None, [member.street or '', member.city or '', member.state_id.name or '', member.country_id.name or ''])) or 'Không có địa chỉ'"/>
-                                    </p>
-                                </div>
+                                  <h5 class="card-title">
+                                  <strong><t t-esc="member.name"/></strong>
+                                </h5>
+                                <p class="card-text">
+                                  <span>Công ty:</span>
+                                  <t t-esc="member.company_name or ''"/>                 
+                                </p>
+                                <p class="card-text">
+                                    <strong>Ngành nghề:</strong>
+                                    <t t-esc="member.industry_id.name or ''"/>
+                                </p>
+                                <p class="card-text">
+                                    <strong>Địa chỉ:</strong>
+                                    <t t-esc="', '.join(filter(None, [member.street or '', member.city or '', member.state_id.name or '', member.country_id.name or ''])) or ''"/>
+                                </p>
                             </div>
                         </div>
-                    </t>
-                </div>
+                    </div>
+                </t>
             </div>
-        </t>
-    </template>
+        </div>
+    </t>
+</template>
 </odoo>

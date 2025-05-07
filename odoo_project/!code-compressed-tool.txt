@@ -33,6 +33,21 @@ addons_path = /mnt/extra-addons
 data_dir = /var/lib/odoo
 admin_passwd = $pbkdf2-sha512$600000$7l3r3RtjzPl/T.ndW.s9pw$qRk38ix6.beNhYNu7/cDIfvYpQY7JxkwWabb9x9NmePICsxXLqaCoj/f6SwTg8arZFJtLR2Uke8Si72GbP0BZg
 
+---run.py
+def wait_for_odoo():
+while True:
+try:
+subprocess.run(["curl", "-f", "http://localhost:8069"], timeout=5)
+print("✅ Odoo is ready!")
+break
+except subprocess.CalledProcessError:
+print("⏳ Waiting for Odoo...")
+time.sleep(5)
+
+# In main():
+run_command("docker-compose up --build -d")
+wait_for_odoo()
+webbrowser.open("http://localhost:8069")
 ---extra-addons\member\__init__.py
 from . import controllers
 from . import models
@@ -41,12 +56,17 @@ from . import models
 'name': 'Member Management',
 'version': '1.0',
 'summary': 'Manage members and display public list',
-'depends': ['base', 'website'],
+'depends': ['base', 'website', 'membership'],
 'data': [
 'security/ir.model.access.csv',
 'views/member_templates.xml',
 'views/member_views.xml',
 ],
+'assets': {
+'web.assets_frontend': [
+'member/static/img/placeholder.png',
+],
+},
 'installable': True,
 'application': True,
 }
@@ -57,12 +77,14 @@ from odoo.http import request
 class MemberController(http.Controller):
 @http.route('/members', type='http', auth='public', website=True)
 def list_members(self, **kwargs):
-partners = request.env['res.partner'].sudo().search([])
-return request.render('member.member_list_template', {'members': partners})
+members = request.env['res.partner'].sudo().search([
+('membership_state', '!=', 'none'),
+])
+return request.render('member.member_list_template', {'members': members})
 ---extra-addons\member\controllers\__init__.py
 from . import main
 ---extra-addons\member\controllers\__pycache__\main.cpython-39.pyc
-[ERROR READING FILE: 'utf-8' codec can't decode byte 0xc9 in position 8: invalid continuation byte]
+[ERROR READING FILE: 'utf-8' codec can't decode byte 0xf0 in position 8: invalid continuation byte]
 ---extra-addons\member\controllers\__pycache__\__init__.cpython-39.pyc
 [ERROR READING FILE: 'utf-8' codec can't decode byte 0xbb in position 9: invalid start byte]
 ---extra-addons\member\models\member.py
@@ -84,7 +106,7 @@ country_id = fields.Many2one('res.country', string='Country')
 ---extra-addons\member\models\__init__.py
 from . import member
 ---extra-addons\member\models\__pycache__\member.cpython-39.pyc
-[ERROR READING FILE: 'utf-8' codec can't decode byte 0xd8 in position 9: invalid continuation byte]
+[ERROR READING FILE: 'utf-8' codec can't decode byte 0xe2 in position 8: invalid continuation byte]
 ---extra-addons\member\models\__pycache__\__init__.cpython-39.pyc
 [ERROR READING FILE: 'utf-8' codec can't decode byte 0xbb in position 9: invalid start byte]
 ---extra-addons\member\security\ir.model.access.csv
@@ -93,26 +115,34 @@ access_member_public,member.member.public,model_member_member,,1,0,0,0
 ---extra-addons\member\views\member_templates.xml
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
+<meta name="mobile-web-app-capable" content="yes">
 <template id="member_list_template" name="Member List">
 <t t-call="website.layout">
 <div class="container mt-4">
-<h1>Danh sách thành viên</h1>
+<h1>Danh sách thành viênn</h1>
 <div class="row">
 <t t-foreach="members" t-as="member">
 <div class="col-md-4 col-sm-6 mb-4">
 <div class="card h-100 shadow-sm">
-<!-- Avatar -->
-<img t-att-src="member.image_1920 and 'data:image/png;base64,%s' % member.image_1920 or '/web/static/img/placeholder.png'" class="card-img-top rounded-circle mx-auto mt-3" style="width: 120px; height: 120px; object-fit: cover;" alt="Member Avatar"/>
+<img t-att-src="member.image_1920 and '/web/image/member.member/%d/image_1920' % member.id or '/member/static/img/placeholder.png'"
+class="card-img-top rounded-circle mx-auto mt-3"
+style="width: 120px; height: 120px; object-fit: cover;"
+alt="Member Avatar"/>
 <div class="card-body text-center">
-<!-- Company Name -->
-<h5 class="card-title"><t t-esc="member.company_name or 'Không có công ty'"/></h5>
-<!-- Name -->
-<p class="card-text"><strong>Tên:</strong> <t t-esc="member.name or 'Không xác định'"/></p>
-<!-- Industry -->
-<p class="card-text"><strong>Ngành nghề:</strong> <t t-esc="member.industry_id.name or 'Không xác định'"/></p>
-<!-- Company Address -->
-<p class="card-text"><strong>Địa chỉ công ty:</strong>
-<t t-esc="', '.join(filter(None, [member.street or '', member.city or '', member.state_id.name or '', member.country_id.name or ''])) or 'Không có địa chỉ'"/>
+<h5 class="card-title">
+<strong><t t-esc="member.name"/></strong>
+</h5>
+<p class="card-text">
+<span>Công ty:</span>
+<t t-esc="member.company_name or ''"/>
+</p>
+<p class="card-text">
+<strong>Ngành nghề:</strong>
+<t t-esc="member.industry_id.name or ''"/>
+</p>
+<p class="card-text">
+<strong>Địa chỉ:</strong>
+<t t-esc="', '.join(filter(None, [member.street or '', member.city or '', member.state_id.name or '', member.country_id.name or ''])) or ''"/>
 </p>
 </div>
 </div>
