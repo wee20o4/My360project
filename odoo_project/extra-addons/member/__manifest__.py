@@ -2,7 +2,7 @@
     'name': 'Member Management',
     'version': '1.0',
     'summary': 'Manage members and display public list',
-    'depends': ['base', 'website', 'membership'],
+    'depends': ['base', 'website', 'membership', 'website_partner'],
     'data': [
         'security/ir.model.access.csv',
         'views/member_templates.xml',

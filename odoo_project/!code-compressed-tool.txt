@@ -56,7 +56,7 @@ from . import models
 'name': 'Member Management',
 'version': '1.0',
 'summary': 'Manage members and display public list',
-'depends': ['base', 'website', 'membership'],
+'depends': ['base', 'website', 'membership', 'website_partner'],
 'data': [
 'security/ir.model.access.csv',
 'views/member_templates.xml',
@@ -73,6 +73,7 @@ from . import models
 ---extra-addons\member\controllers\main.py
 from odoo import http
 from odoo.http import request
+from werkzeug.exceptions import NotFound
 
 class MemberController(http.Controller):
 @http.route('/members', type='http', auth='public', website=True)
@@ -87,10 +88,18 @@ if not member.company_name and member.parent_id:
 member.company_name = member.parent_id.name
 
 return request.render('member.member_list_template', {'members': members})
+
+@http.route('/partners/<model("res.partner"):partner>', type='http', auth='public', website=True)
+def member_detail(self, partner, **kwargs):
+values = {
+'partner': partner,
+'main_object': partner,
+}
+return request.render("website_partner.partner_page", values)
 ---extra-addons\member\controllers\__init__.py
 from . import main
 ---extra-addons\member\controllers\__pycache__\main.cpython-39.pyc
-[ERROR READING FILE: 'utf-8' codec can't decode byte 0x8c in position 8: invalid start byte]
+[ERROR READING FILE: 'utf-8' codec can't decode byte 0xf1 in position 12: invalid continuation byte]
 ---extra-addons\member\controllers\__pycache__\__init__.cpython-39.pyc
 [ERROR READING FILE: 'utf-8' codec can't decode byte 0xbb in position 9: invalid start byte]
 ---extra-addons\member\models\member.py
@@ -130,11 +139,85 @@ access_member_public,member.member.public,model_res_partner,,1,0,0,0
 <template id="member_list_template" name="Member List">
 <t t-call="website.layout">
 <div class="container mt-4">
-<h1>Danh sách thành viên</h1>
+<h1>Danh sách hội viên</h1>
+<p style="margin-bottom:30px">
+Hội viên chính thức được công nhận và lưu giữ hồ sơ điện tử tại Hiệp hội Doanh nghiệp Nhỏ và Vừa TP. Vũng Tàu là những cá nhân hoặc tổ chức đã vượt qua quy trình thẩm định chất lượng nghiêm ngặt của Hiệp hội, đồng thời hoàn thành đầy đủ các nghĩa vụ đóng góp tài chính theo quy định. Tư cách này mang lại cho hội viên những quyền lợi đặc biệt, khẳng định uy tín và sự cam kết trong việc đồng hành cùng sự phát triển bền vững của cộng đồng doanh nghiệp Nhỏ và Vừa TP. Vũng Tàu.
+</p> <br/><br/>
+
+<!-- search -->
+
+<br/><br/><br/>
+<style>
+.container.mt-4 {
+padding-top: 20px;
+}
+
+h1 {
+text-align: center;
+font-size: 2.5rem;
+color: #003087;
+margin-bottom: 10px;
+}
+
+h2 {
+text-align: center;
+font-size: 1.2rem;
+color: #555;
+margin-bottom: 30px;
+line-height: 1.6;
+}
+
+.row {
+margin-top: 20px;
+}
+
+.card {
+border: none;
+border-radius: 10px;
+box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+background-color: #fff;
+transition: transform 0.2s;
+}
+
+.card:hover {
+transform: translateY(-5px);
+}
+
+.card-img-top {
+width: 120px;
+height: 120px;
+object-fit: cover;
+border-radius: 50%;
+margin-top: 20px;
+border: 4px solid #003087;
+}
+
+.card-body {
+padding: 15px;
+text-align: center;
+}
+
+.card-title {
+font-size: 1.25rem;
+font-weight: bold;
+color: #003087;
+}
+
+.card-text {
+font-size: 0.9rem;
+color: #666;
+margin-bottom: 5px;
+}
+
+.card-text strong {
+color: #003087;
+}
+</style>
 <div class="row">
 <t t-foreach="members" t-as="member">
 <div class="col-md-4 col-sm-6 mb-4">
 <div class="card h-100 shadow-sm">
+<a t-att-href="'/partners/%s' % slug(member)" class="text-decoration-none text-dark">
 <img
 t-att-src="member.image_1920 and '/web/image/res.partner/%s/image_1920' % member.id or '/member/static/img/placeholder.png'"
 t-att-alt="'Member Avatar: ' + (member.name or '')"
@@ -172,6 +255,7 @@ member.country_id.name or ''
 ])) or ''"/>
 </p>
 </div>
+</a>
 </div>
 </div>
 </t>
