@@ -1,0 +1,174 @@
+---docker-compose.yml
+services:
+odoo:
+image: odoo:16.0
+depends_on:
+- db
+ports:
+- "8069:8069"
+volumes:
+- ./extra-addons:/mnt/extra-addons
+- ./odoo.conf:/etc/odoo/odoo.conf
+- odoo-data:/var/lib/odoo
+environment:
+- HOST=db
+- USER=odoo
+- PASSWORD=odoo
+platform: linux/amd64
+db:
+image: postgres:13
+environment:
+- POSTGRES_DB=postgres
+- POSTGRES_USER=odoo
+- POSTGRES_PASSWORD=odoo
+volumes:
+- odoo-db-data:/var/lib/postgresql/data
+platform: linux/amd64
+volumes:
+odoo-data:
+odoo-db-data:
+---odoo.conf
+[options]
+addons_path = /mnt/extra-addons
+data_dir = /var/lib/odoo
+admin_passwd = $pbkdf2-sha512$600000$7l3r3RtjzPl/T.ndW.s9pw$qRk38ix6.beNhYNu7/cDIfvYpQY7JxkwWabb9x9NmePICsxXLqaCoj/f6SwTg8arZFJtLR2Uke8Si72GbP0BZg
+
+---extra-addons\member\__init__.py
+from . import controllers
+from . import models
+---extra-addons\member\__manifest__.py
+{
+'name': 'Member Management',
+'version': '1.0',
+'summary': 'Manage members and display public list',
+'depends': ['base', 'website'],
+'data': [
+'security/ir.model.access.csv',
+'views/member_templates.xml',
+'views/member_views.xml',
+],
+'installable': True,
+'application': True,
+}
+---extra-addons\member\controllers\main.py
+from odoo import http
+from odoo.http import request
+
+class MemberController(http.Controller):
+@http.route('/members', type='http', auth='public', website=True)
+def list_members(self, **kwargs):
+partners = request.env['res.partner'].sudo().search([])
+return request.render('member.member_list_template', {'members': partners})
+---extra-addons\member\controllers\__init__.py
+from . import main
+---extra-addons\member\controllers\__pycache__\main.cpython-39.pyc
+[ERROR READING FILE: 'utf-8' codec can't decode byte 0xc9 in position 8: invalid continuation byte]
+---extra-addons\member\controllers\__pycache__\__init__.cpython-39.pyc
+[ERROR READING FILE: 'utf-8' codec can't decode byte 0xbb in position 9: invalid start byte]
+---extra-addons\member\models\member.py
+from odoo import fields, models
+
+class Member(models.Model):
+_name = 'member.member'
+_description = 'Member'
+
+name = fields.Char(string='Name', required=True)
+email = fields.Char(string='Email')
+image_1920 = fields.Image(string='Avatar', max_width=1920, max_height=1920)
+company_name = fields.Char(string='Company Name')
+industry_id = fields.Many2one('res.partner.industry', string='Industry')
+street = fields.Char(string='Street')
+city = fields.Char(string='City')
+state_id = fields.Many2one('res.country.state', string='State')
+country_id = fields.Many2one('res.country', string='Country')
+---extra-addons\member\models\__init__.py
+from . import member
+---extra-addons\member\models\__pycache__\member.cpython-39.pyc
+[ERROR READING FILE: 'utf-8' codec can't decode byte 0xd8 in position 9: invalid continuation byte]
+---extra-addons\member\models\__pycache__\__init__.cpython-39.pyc
+[ERROR READING FILE: 'utf-8' codec can't decode byte 0xbb in position 9: invalid start byte]
+---extra-addons\member\security\ir.model.access.csv
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_member_public,member.member.public,model_member_member,,1,0,0,0
+---extra-addons\member\views\member_templates.xml
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+<template id="member_list_template" name="Member List">
+<t t-call="website.layout">
+<div class="container mt-4">
+<h1>Danh sách thành viên</h1>
+<div class="row">
+<t t-foreach="members" t-as="member">
+<div class="col-md-4 col-sm-6 mb-4">
+<div class="card h-100 shadow-sm">
+<!-- Avatar -->
+<img t-att-src="member.image_1920 and 'data:image/png;base64,%s' % member.image_1920 or '/web/static/img/placeholder.png'" class="card-img-top rounded-circle mx-auto mt-3" style="width: 120px; height: 120px; object-fit: cover;" alt="Member Avatar"/>
+<div class="card-body text-center">
+<!-- Company Name -->
+<h5 class="card-title"><t t-esc="member.company_name or 'Không có công ty'"/></h5>
+<!-- Name -->
+<p class="card-text"><strong>Tên:</strong> <t t-esc="member.name or 'Không xác định'"/></p>
+<!-- Industry -->
+<p class="card-text"><strong>Ngành nghề:</strong> <t t-esc="member.industry_id.name or 'Không xác định'"/></p>
+<!-- Company Address -->
+<p class="card-text"><strong>Địa chỉ công ty:</strong>
+<t t-esc="', '.join(filter(None, [member.street or '', member.city or '', member.state_id.name or '', member.country_id.name or ''])) or 'Không có địa chỉ'"/>
+</p>
+</div>
+</div>
+</div>
+</t>
+</div>
+</div>
+</t>
+</template>
+</odoo>
+---extra-addons\member\views\member_views.xml
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+<record id="member_tree_view" model="ir.ui.view">
+<field name="name">member.tree</field>
+<field name="model">member.member</field>
+<field name="arch" type="xml">
+<tree>
+<field name="name"/>
+<field name="email"/>
+</tree>
+</field>
+</record>
+
+<record id="member_form_view" model="ir.ui.view">
+<field name="name">member.form</field>
+<field name="model">member.member</field>
+<field name="arch" type="xml">
+<form>
+<sheet>
+<group>
+<field name="name"/>
+<field name="email"/>
+<field name="company_name"/>
+<field name="industry_id"/>
+<field name="street"/>
+<field name="city"/>
+<field name="state_id"/>
+<field name="country_id"/>
+<field name="image_1920"/>
+</group>
+</sheet>
+</form>
+</field>
+</record>
+
+<record id="action_member" model="ir.actions.act_window">
+<field name="name">Members</field>
+<field name="res_model">member.member</field>
+<field name="view_mode">tree,form</field>
+<field name="view_id" eval="False"/>
+<field name="views" eval="[(False, 'tree'), (False, 'form')]"/>
+</record>
+
+<menuitem id="menu_member_root" name="Members" sequence="10"/>
+<menuitem id="menu_member_list" name="Member List" parent="menu_member_root" action="action_member" sequence="10"/>
+</odoo>
+---extra-addons\member\__pycache__\__init__.cpython-39.pyc
+[ERROR READING FILE: 'utf-8' codec can't decode byte 0xbb in position 9: invalid start byte]

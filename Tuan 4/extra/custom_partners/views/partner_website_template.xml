@@ -1,0 +1,40 @@
+<odoo>
+    <template id="website_partner_list" name="Danh sách Liên hệ">
+        <t t-call="website.layout">
+            <div class="container my-5">
+                <h1 class="mb-4">Danh sách Liên hệ</h1>
+                <t t-if="message">
+                    <div class="alert alert-info">
+                        <t t-esc="message"/>
+                    </div>
+                </t>
+                <t t-else="">
+                    <div class="row row-cols-1 row-cols-md-3 g-4">
+                        <t t-foreach="partners" t-as="partner">
+                            <div class="col">
+                                <a t-att-href="'/partners/%s' % partner.id" class="text-decoration-none text-dark">
+                                    <div class="card h-100 shadow-sm border-0 hover-shadow transition">
+                                        <div class="card-body text-center">
+                                            <img t-att-src="'/web/image/res.partner/%s/image_1920' % partner.id"
+                                                 class="img-fluid rounded-circle mb-3"
+                                                 style="width: 100px; height: 100px; object-fit: cover;"
+                                                 alt="Avatar"/>
+                                            <h5 class="card-title mb-1">
+                                                <t t-esc="partner.name"/>
+                                            </h5>
+                                            <p class="card-text small text-muted">
+                                                <t t-if="partner.email">📧 <t t-esc="partner.email"/></t><br/>
+                                                <t t-if="partner.phone">📞 <t t-esc="partner.phone"/></t><br/>
+                                                <t t-if="partner.website">🌐 <t t-esc="partner.website"/></t>
+                                            </p>
+                                        </div>
+                                    </div>
+                                </a>
+                            </div>
+                        </t>
+                    </div>
+                </t>
+            </div>
+        </t>
+    </template>
+</odoo>

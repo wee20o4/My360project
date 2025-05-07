@@ -1,0 +1,205 @@
+---!code-compresed-tool.py
+import os
+
+EXCLUDED_FOLDERS = {
+"bin", "obj", "wwwroot", ".git", "Properties", "lib", "keys",
+"node_modules",
+".vscode",
+".document",
+"odoo-data",
+"images"
+}
+
+EXCLUDED_FILES = {
+"package-lock.json",
+"jsconfig.json",
+"vite.config.js",
+".editorconfig",
+".gitattributes",
+".gitignore",
+".prettierrc.json",
+".prettierignore",
+"README.md",
+"!code-compressed-tool-full.py",
+"!code-compressed-tool.py",
+".env",
+"!run-script-macos.txt",
+"!run-website.cmd"
+}
+
+def compress_source_code(root_folder, output_file):
+if os.path.exists(output_file):
+try:
+os.remove(output_file)
+print(f"Đã xóa file cũ: {output_file}")
+except Exception as e:
+print(f"Lỗi khi xóa file cũ {output_file}: {e}")
+return
+
+files_to_process = []
+total_characters = 0
+
+for folder, _, files in os.walk(root_folder):
+if any(excluded in folder for excluded in EXCLUDED_FOLDERS):
+continue
+for file in files:
+if file in EXCLUDED_FILES:
+continue
+files_to_process.append(os.path.join(folder, file))
+
+total_files = len(files_to_process)
+compressed_content = ""
+
+for index, file_path in enumerate(files_to_process, start=1):
+relative_path = os.path.relpath(file_path, root_folder)
+try:
+with open(file_path, "r", encoding="utf-8") as f:
+content = "\n".join(line.strip() for line in f.readlines())  # Giữ nguyên dòng, chỉ xóa khoảng trắng thừa
+except Exception as e:
+content = f"[ERROR READING FILE: {e}]"
+
+total_characters += len(content)
+print(f"Processing ({index}/{total_files}) {relative_path} - {(index / total_files) * 100:.2f}% done")
+compressed_content += f"---{relative_path}\n{content}\n"  # Giữ nguyên dòng, chỉ loại bỏ khoảng trắng đầu cuối
+
+with open(output_file, "w", encoding="utf-8") as out_file:
+out_file.write(compressed_content)
+
+print(f"✅ Tổng số ký tự đã nén: {total_characters}")
+
+if __name__ == "__main__":
+root_directory = os.path.dirname(os.path.abspath(__file__))
+output_file = os.path.join(root_directory, "!code-compressed-tool.txt")
+compress_source_code(root_directory, output_file)
+print(f"Source code đã được compressed thành file: {output_file}")
+---docker-compose.yml
+services:
+db:
+image: postgres:13
+environment:
+- POSTGRES_DB=postgres
+- POSTGRES_USER=odoo
+- POSTGRES_PASSWORD=odoo
+volumes:
+- odoo-db-data:/var/lib/postgresql/data
+
+odoo:
+image: odoo:16
+depends_on:
+- db
+ports:
+- "8069:8069"
+environment:
+- HOST=db
+- USER=odoo
+- PASSWORD=odoo
+volumes:
+- ./odoo-data:/var/lib/odoo
+- ./extra:/mnt/extra-addons
+- ./config/odoo.conf:/etc/odoo/odoo.conf
+
+volumes:
+odoo-db-data:
+odoo-web-data:
+---config\odoo.conf
+[options]
+addons_path = /mnt/extra-addons
+data_dir = /var/lib/odoo
+admin_passwd = $pbkdf2-sha512$600000$KEXI.Z/TOiekdC5F6B0jRA$hTgASoaSYFDwKxT7teekC9wNHY39kGW62n1/b/RYSayHM0v9YDEsdM4HfGHD.paq9dz8J5KrV7NuUxM/ibl8cQ
+
+---extra\custom_partners\__init__.py
+from . import controllers
+---extra\custom_partners\__manifest__.py
+{
+'name': 'Custom Partners',
+'version': '16.0.1.0.0',
+'summary': 'Trang website hiển thị danh sách liên hệ',
+'category': 'Website',
+'author': 'Minh Cuong',
+'depends': ['base', 'contacts', 'website'],
+'data': [
+'views/partner_website_template.xml',
+],
+'installable': True,
+'application': False,
+'license': 'LGPL-3',
+}
+---extra\custom_partners\controllers\partner_website.py
+from odoo import http
+from odoo.http import request
+
+class WebsitePartner(http.Controller):
+
+@http.route(['/partners'], type='http', auth='public', website=True)
+def list_partners(self, **kwargs):
+# Loại bỏ domain hoặc điều chỉnh nếu cần hiển thị cả công ty
+domain = []  # Lấy tất cả partner
+# Nếu chỉ muốn cá nhân, dùng: domain = [('is_company', '=', False)]
+partners = request.env['res.partner'].sudo().search(domain)
+if not partners:
+# Hiển thị thông báo trên giao diện nếu không có dữ liệu
+return request.render('custom_partners.website_partner_list', {
+'partners': [],
+'message': 'Hiện tại chưa có hội viên nào trong hệ thống.'
+})
+return request.render('custom_partners.website_partner_list', {
+'partners': partners
+})
+---extra\custom_partners\views\partner_website_template.xml
+<odoo>
+<template id="website_partner_list" name="Danh sách Liên hệ">
+<t t-call="website.layout">
+<div class="container my-5">
+<h1 class="mb-4">Danh sách Liên hệ</h1>
+<t t-if="message">
+<div class="alert alert-info">
+<t t-esc="message"/>
+</div>
+</t>
+<t t-else="">
+<div class="row row-cols-1 row-cols-md-3 g-4">
+<t t-foreach="partners" t-as="partner">
+<div class="col">
+<a t-att-href="'/partners/%s' % partner.id" class="text-decoration-none text-dark">
+<div class="card h-100 shadow-sm border-0 hover-shadow transition">
+<div class="card-body text-center">
+<img t-att-src="'/web/image/res.partner/%s/image_1920' % partner.id"
+class="img-fluid rounded-circle mb-3"
+style="width: 100px; height: 100px; object-fit: cover;"
+alt="Avatar"/>
+<h5 class="card-title mb-1">
+<t t-esc="partner.name"/>
+</h5>
+<p class="card-text small text-muted">
+<t t-if="partner.email">📧 <t t-esc="partner.email"/></t><br/>
+<t t-if="partner.phone">📞 <t t-esc="partner.phone"/></t><br/>
+<t t-if="partner.website">🌐 <t t-esc="partner.website"/></t>
+</p>
+</div>
+</div>
+</a>
+</div>
+</t>
+</div>
+</t>
+</div>
+</t>
+</template>
+</odoo>
+---extra\custom_partners\views\__manifest__.py
+{
+'name': 'Custom Partners',
+'version': '16.0.1.0.0',
+'summary': 'Trang website hiển thị danh sách liên hệ',
+'category': 'Website',
+'author': 'Minh Cuong',
+'depends': ['base', 'contacts', 'website'],
+'data': [
+'views/partner_website_template.xml',
+],
+'installable': True,
+'application': False,
+'license': 'LGPL-3',
+}
+---extra\custom_partners\__pycache__\__init__.cpython-39.pyc
+[ERROR READING FILE: 'utf-8' codec can't decode byte 0xc7 in position 9: invalid continuation byte]

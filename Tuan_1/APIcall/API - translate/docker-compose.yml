@@ -1,7 +1,7 @@
-version: '3.8'
-
+version: '3'
 services:
   web:
     build: .
     ports:
       - "5000:5000"
+    container_name: flask_app_wee20o4
