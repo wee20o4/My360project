@@ -1,3 +1,7 @@
+import subprocess
+import time
+import webbrowser
+
 def wait_for_odoo():
     while True:
         try:
@@ -8,7 +12,7 @@ def wait_for_odoo():
             print("⏳ Waiting for Odoo...")
             time.sleep(5)
 
-# In main():
-run_command("docker-compose up --build -d")
-wait_for_odoo()
-webbrowser.open("http://localhost:8069")
+if __name__ == "__main__":
+    subprocess.run(["docker-compose", "up", "--build", "-d"])
+    wait_for_odoo()
+    webbrowser.open("http://localhost:8069")

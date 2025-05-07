@@ -8,7 +8,6 @@
                     Hội viên chính thức được công nhận và lưu giữ hồ sơ điện tử tại Hiệp hội Doanh nghiệp Nhỏ và Vừa TP. Vũng Tàu là những cá nhân hoặc tổ chức đã vượt qua quy trình thẩm định chất lượng nghiêm ngặt của Hiệp hội, đồng thời hoàn thành đầy đủ các nghĩa vụ đóng góp tài chính theo quy định. Tư cách này mang lại cho hội viên những quyền lợi đặc biệt, khẳng định uy tín và sự cam kết trong việc đồng hành cùng sự phát triển bền vững của cộng đồng doanh nghiệp Nhỏ và Vừa TP. Vũng Tàu.
                 </p>
                 <br/><br/>
-                <!-- Search Bar -->
                 <div class="row mb-4">
                     <div class="col-12">
                         <div class="input-group">
@@ -20,24 +19,27 @@
                     </div>
                 </div>
                 <br/><br/>
-                <!-- JavaScript for Client-Side Search -->
                 <script>
                     function searchMembers() {
-                        var searchTerm = document.getElementById('memberSearchInput').value.toLowerCase();
-                        var cards = document.querySelectorAll('.card');
+                        try {
+                            var searchTerm = document.getElementById('memberSearchInput').value.toLowerCase();
+                            var cards = document.querySelectorAll('.card');
 
-                        cards.forEach(function(card) {
-                            var name = card.querySelector('.card-title strong') ? card.querySelector('.card-title strong').textContent.toLowerCase() : '';
-                            var company = card.querySelector('.card-text:nth-child(2)') ? card.querySelector('.card-text:nth-child(2)').textContent.toLowerCase() : '';
-                            var industry = card.querySelector('.card-text:nth-child(3)') ? card.querySelector('.card-text:nth-child(3)').textContent.toLowerCase() : '';
-                            var address = card.querySelector('.card-text:nth-child(4)') ? card.querySelector('.card-text:nth-child(4)').textContent.toLowerCase() : '';
+                            cards.forEach(function(card) {
+                                var name = card.querySelector('.card-title strong') ? card.querySelector('.card-title strong').textContent.toLowerCase() : '';
+                                var company = card.querySelector('.card-text:nth-child(2)') ? card.querySelector('.card-text:nth-child(2)').textContent.toLowerCase() : '';
+                                var industry = card.querySelector('.card-text:nth-child(3)') ? card.querySelector('.card-text:nth-child(3)').textContent.toLowerCase() : '';
+                                var address = card.querySelector('.card-text:nth-child(4)') ? card.querySelector('.card-text:nth-child(4)').textContent.toLowerCase() : '';
 
-                            if (name.includes(searchTerm) || company.includes(searchTerm) || industry.includes(searchTerm) || address.includes(searchTerm)) {
-                                card.parentElement.style.display = 'block';
-                            } else {
-                                card.parentElement.style.display = 'none';
-                            }
-                        });
+                                if (name.includes(searchTerm) || company.includes(searchTerm) || industry.includes(searchTerm) || address.includes(searchTerm)) {
+                                    card.parentElement.style.display = 'block';
+                                } else {
+                                    card.parentElement.style.display = 'none';
+                                }
+                            });
+                        } catch (error) {
+                            console.error("Error in searchMembers:", error);
+                        }
                     }
 
                     document.getElementById('memberSearchInput').addEventListener('keypress', function(e) {
@@ -46,8 +48,6 @@
                         }
                     });
                 </script>
-
-                <!-- Member List -->
                 <div class="row">
                     <t t-foreach="members" t-as="member">
                         <div class="col-md-4 col-sm-6 mb-4">
@@ -63,16 +63,7 @@
                                         </h5>
                                         <p class="card-text">
                                             <strong>Công ty: </strong>
-                                            <t t-if="member.parent_id">
-                                                <t t-esc="member.parent_id.name or ''"/>
-                                            </t>
-                                            <t t-elif="member.company_name">
-                                                <t t-esc="member.company_name or ''"/>
-                                            </t>
-                                            <t t-elif="member.commercial_company_name">
-                                                <t t-esc="member.commercial_company_name or ''"/>
-                                            </t>
-                                            <t t-else="">-</t>
+                                            <t t-esc="member.company_name or member.parent_id.name or member.commercial_company_name or '-'"/>
                                         </p>
                                         <p class="card-text">
                                             <strong>Ngành nghề: </strong>
@@ -88,8 +79,6 @@
                         </div>
                     </t>
                 </div>
-
-                <!-- Styles -->
                 <style>
                     .container.mt-4 {
                         padding-top: 20px;
