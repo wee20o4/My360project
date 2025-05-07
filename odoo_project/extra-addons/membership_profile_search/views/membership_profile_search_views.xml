@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="membership_profile_search_tree_view" model="ir.ui.view">
+        <field name="name">membership_profile_search.tree</field>
+        <field name="model">res.partner</field>
+        <field name="arch" type="xml">
+            <tree>
+                <field name="name"/>
+                <field name="email"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="membership_profile_search_form_view" model="ir.ui.view">
+        <field name="name">membership_profile_search.form</field>
+        <field name="model">res.partner</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <group>
+                        <field name="name"/>
+                        <field name="email"/>
+                        <field name="company_name"/>
+                        <field name="industry_id"/>
+                        <field name="street"/>
+                        <field name="city"/>
+                        <field name="state_id"/>
+                        <field name="country_id"/>
+                        <field name="image_1920" widget="image"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_membership_profile_search" model="ir.actions.act_window">
+        <field name="name">Membership Profiles</field>
+        <field name="res_model">res.partner</field>
+        <field name="view_mode">tree,form</field>
+        <field name="view_id" eval="False"/>
+        <field name="views" eval="[(False, 'tree'), (False, 'form')]"/>
+    </record>
+
+    <menuitem id="menu_membership_profile_search_root" name="Membership Profiles" sequence="10"/>
+    <menuitem id="menu_membership_profile_search_list" name="Profile List" parent="menu_membership_profile_search_root" action="action_membership_profile_search" sequence="10"/>
+</odoo>
