@@ -32,22 +32,7 @@ odoo-db-data:
 addons_path = /mnt/extra-addons,/usr/lib/python3/dist-packages/odoo/addons
 data_dir = /var/lib/odoo
 admin_passwd = $pbkdf2-sha512$600000$7l3r3RtjzPl/T.ndW.s9pw$qRk38ix6.beNhYNu7/cDIfvYpQY7JxkwWabb9x9NmePICsxXLqaCoj/f6SwTg8arZFJtLR2Uke8Si72GbP0BZg
-
----run.py
-def wait_for_odoo():
-while True:
-try:
-subprocess.run(["curl", "-f", "http://localhost:8069"], timeout=5)
-print("✅ Odoo is ready!")
-break
-except subprocess.CalledProcessError:
-print("⏳ Waiting for Odoo...")
-time.sleep(5)
-
-# In main():
-run_command("docker-compose up --build -d")
-wait_for_odoo()
-webbrowser.open("http://localhost:8069")
+dev_mode = False
 ---extra-addons\membership_profile_search\__init__.py
 from . import controllers
 from . import models
@@ -162,7 +147,6 @@ access_membership_profile_search_user,membership_profile_search.user,model_res_p
 Hội viên chính thức được công nhận và lưu giữ hồ sơ điện tử tại Hiệp hội Doanh nghiệp Nhỏ và Vừa TP. Vũng Tàu là những cá nhân hoặc tổ chức đã vượt qua quy trình thẩm định chất lượng nghiêm ngặt của Hiệp hội, đồng thời hoàn thành đầy đủ các nghĩa vụ đóng góp tài chính theo quy định. Tư cách này mang lại cho hội viên những quyền lợi đặc biệt, khẳng định uy tín và sự cam kết trong việc đồng hành cùng sự phát triển bền vững của cộng đồng doanh nghiệp Nhỏ và Vừa TP. Vũng Tàu.
 </p>
 <br/><br/>
-<!-- Search Bar -->
 <div class="row mb-4">
 <div class="col-12">
 <div class="input-group">
@@ -174,9 +158,9 @@ Hội viên chính thức được công nhận và lưu giữ hồ sơ điện 
 </div>
 </div>
 <br/><br/>
-<!-- JavaScript for Client-Side Search -->
 <script>
 function searchMembers() {
+try {
 var searchTerm = document.getElementById('memberSearchInput').value.toLowerCase();
 var cards = document.querySelectorAll('.card');
 
@@ -192,6 +176,9 @@ card.parentElement.style.display = 'block';
 card.parentElement.style.display = 'none';
 }
 });
+} catch (error) {
+console.error("Error in searchMembers:", error);
+}
 }
 
 document.getElementById('memberSearchInput').addEventListener('keypress', function(e) {
@@ -200,8 +187,6 @@ searchMembers();
 }
 });
 </script>
-
-<!-- Member List -->
 <div class="row">
 <t t-foreach="members" t-as="member">
 <div class="col-md-4 col-sm-6 mb-4">
@@ -217,16 +202,7 @@ style="width: 120px; height: 120px; object-fit: cover;"/>
 </h5>
 <p class="card-text">
 <strong>Công ty: </strong>
-<t t-if="member.parent_id">
-<t t-esc="member.parent_id.name or ''"/>
-</t>
-<t t-elif="member.company_name">
-<t t-esc="member.company_name or ''"/>
-</t>
-<t t-elif="member.commercial_company_name">
-<t t-esc="member.commercial_company_name or ''"/>
-</t>
-<t t-else="">-</t>
+<t t-esc="member.company_name or member.parent_id.name or member.commercial_company_name or '-'"/>
 </p>
 <p class="card-text">
 <strong>Ngành nghề: </strong>
@@ -242,8 +218,6 @@ style="width: 120px; height: 120px; object-fit: cover;"/>
 </div>
 </t>
 </div>
-
-<!-- Styles -->
 <style>
 .container.mt-4 {
 padding-top: 20px;

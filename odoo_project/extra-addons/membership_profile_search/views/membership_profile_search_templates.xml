@@ -1,150 +1,241 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <odoo>
-    <template id="membership_profile_search_list_template" name="Membership Profile Search List">
-        <t t-call="website.layout">
-            <div class="container mt-4">
-                <h1>Danh sách hội viên</h1>
-                <p style="margin-bottom: 30px;">
-                    Hội viên chính thức được công nhận và lưu giữ hồ sơ điện tử tại Hiệp hội Doanh nghiệp Nhỏ và Vừa TP. Vũng Tàu là những cá nhân hoặc tổ chức đã vượt qua quy trình thẩm định chất lượng nghiêm ngặt của Hiệp hội, đồng thời hoàn thành đầy đủ các nghĩa vụ đóng góp tài chính theo quy định. Tư cách này mang lại cho hội viên những quyền lợi đặc biệt, khẳng định uy tín và sự cam kết trong việc đồng hành cùng sự phát triển bền vững của cộng đồng doanh nghiệp Nhỏ và Vừa TP. Vũng Tàu.
-                </p>
-                <br/><br/>
-                <div class="row mb-4">
-                    <div class="col-12">
-                        <div class="input-group">
-                            <input type="text" class="form-control" placeholder="Tìm kiếm theo tên, công ty, ngành nghề hoặc địa chỉ..." id="memberSearchInput"/>
-                            <div class="input-group-append">
-                                <button class="btn btn-primary" type="button" onclick="searchMembers()">Tìm kiếm</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <br/><br/>
-                <script>
-                    function searchMembers() {
-                        try {
-                            var searchTerm = document.getElementById('memberSearchInput').value.toLowerCase();
-                            var cards = document.querySelectorAll('.card');
+  <template id="membership_profile_search_list_template" name="Membership Profile Search List">
+    <t t-call="website.layout">
+      <div class="container mt-4">
 
-                            cards.forEach(function(card) {
-                                var name = card.querySelector('.card-title strong') ? card.querySelector('.card-title strong').textContent.toLowerCase() : '';
-                                var company = card.querySelector('.card-text:nth-child(2)') ? card.querySelector('.card-text:nth-child(2)').textContent.toLowerCase() : '';
-                                var industry = card.querySelector('.card-text:nth-child(3)') ? card.querySelector('.card-text:nth-child(3)').textContent.toLowerCase() : '';
-                                var address = card.querySelector('.card-text:nth-child(4)') ? card.querySelector('.card-text:nth-child(4)').textContent.toLowerCase() : '';
+        <h1>Danh sách hội viênn</h1>
+        <p style="margin-bottom: 30px;">
+          Hội viên chính thức được công nhận và lưu giữ hồ sơ điện tử tại Hiệp hội Doanh nghiệp Nhỏ và Vừa TP. Vũng Tàu là những cá nhân hoặc tổ chức đã vượt qua quy trình thẩm định chất lượng nghiêm ngặt của Hiệp hội, đồng thời hoàn thành đầy đủ các nghĩa vụ đóng góp tài chính theo quy định. Tư cách này mang lại cho hội viên những quyền lợi đặc biệt, khẳng định uy tín và sự cam kết trong việc đồng hành cùng sự phát triển bền vững của cộng đồng doanh nghiệp Nhỏ và Vừa TP. Vũng Tàu.
+        </p>
 
-                                if (name.includes(searchTerm) || company.includes(searchTerm) || industry.includes(searchTerm) || address.includes(searchTerm)) {
-                                    card.parentElement.style.display = 'block';
-                                } else {
-                                    card.parentElement.style.display = 'none';
-                                }
-                            });
-                        } catch (error) {
-                            console.error("Error in searchMembers:", error);
-                        }
-                    }
+        <br/><br/>
 
-                    document.getElementById('memberSearchInput').addEventListener('keypress', function(e) {
-                        if (e.key === 'Enter') {
-                            searchMembers();
-                        }
-                    });
-                </script>
-                <div class="row">
-                    <t t-foreach="members" t-as="member">
-                        <div class="col-md-4 col-sm-6 mb-4">
-                            <div class="card h-100 shadow-sm">
-                                <a t-att-href="'/partners/%s' % slug(member)" class="text-decoration-none text-dark">
-                                    <img t-att-src="member.image_1920 and '/web/image/res.partner/%s/image_1920' % member.id or '/membership_profile_search/static/img/placeholder.png'"
-                                         t-att-alt="'Member Avatar: ' + (member.name or '')"
-                                         class="card-img-top rounded-circle mx-auto mt-3"
-                                         style="width: 120px; height: 120px; object-fit: cover;"/>
-                                    <div class="card-body text-center">
-                                        <h5 class="card-title">
-                                            <strong><t t-esc="member.name or ''"/></strong>
-                                        </h5>
-                                        <p class="card-text">
-                                            <strong>Công ty: </strong>
-                                            <t t-esc="member.company_name or member.parent_id.name or member.commercial_company_name or '-'"/>
-                                        </p>
-                                        <p class="card-text">
-                                            <strong>Ngành nghề: </strong>
-                                            <t t-esc="member.industry_id.name or ''"/>
-                                        </p>
-                                        <p class="card-text">
-                                            <strong>Địa chỉ: </strong>
-                                            <t t-esc="', '.join(filter(None, [member.street or '', member.city or '', member.state_id.name or '', member.country_id.name or ''])) or ''"/>
-                                        </p>
-                                    </div>
-                                </a>
-                            </div>
-                        </div>
-                    </t>
-                </div>
-                <style>
-                    .container.mt-4 {
-                        padding-top: 20px;
-                    }
-                    h1 {
-                        text-align: center;
-                        font-size: 2.5rem;
-                        color: #278F84;
-                        margin-bottom: 10px;
-                    }
-                    .input-group {
-                        max-width: 600px;
-                        margin: 0 auto;
-                    }
-                    .form-control {
-                        border-radius: 5px 0 0 5px;
-                    }
-                    .btn-primary {
-                        background-color: #278F84;
-                        border-color: #278F84;
-                        border-radius: 0 5px 5px 0;
-                    }
-                    .btn-primary:hover {
-                        background-color: #278F84;
-                        border-color: #278F84;
-                    }
-                    .row {
-                        margin-top: 20px;
-                    }
-                    .card {
-                        border: none;
-                        border-radius: 10px;
-                        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-                        background-color: #fff;
-                        transition: transform 0.2s;
-                    }
-                    .card:hover {
-                        transform: translateY(-5px);
-                    }
-                    .card-img-top {
-                        width: 120px;
-                        height: 120px;
-                        object-fit: cover;
-                        border-radius: 50%;
-                        margin-top: 20px;
-                        border: 4px solid #278F84;
-                    }
-                    .card-body {
-                        padding: 15px;
-                        text-align: center;
-                    }
-                    .card-title {
-                        font-size: 1.25rem;
-                        font-weight: bold;
-                        color: #278F84;
-                    }
-                    .card-text {
-                        font-size: 0.9rem;
-                        color: #666;
-                        margin-bottom: 5px;
-                    }
-                    .card-text strong {
-                        color: #278F84;
-                    }
-                </style>
+        <div class="row mb-4">
+          <div class="col-md-8">
+            <div class="input-group">
+              <input type="text" class="form-control" placeholder="Tìm kiếm theo tên, công ty, ngành nghề hoặc địa chỉ..." id="memberSearchInput"/>
+              <div class="input-group-append">
+                <button class="btn btn-primary" type="button" onclick="searchMembers()">Tìm kiếm</button>
+              </div>
             </div>
-        </t>
-    </template>
+          </div>
+          <div class="col-md-4">
+            <div class="input-group">
+              <select class="form-control" id="industryFilter">
+                <option value="">-- Tất cả ngành nghề --</option>
+                <t t-foreach="request.env['res.partner.industry'].sudo().search([])" t-as="industry">
+                  <option t-att-value="industry.name">
+                    <t t-esc="industry.name"/>
+                  </option>
+                </t>
+              </select>
+              <div class="input-group-append">
+                <button class="btn btn-primary" type="button" onclick="filterByIndustry()">Lọc</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <br/><br/>
+
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <div class="filter-stats">
+            Hiển thị <span id="memberCounter">0</span> hội viên
+          </div>
+          <div class="filter-reset">
+            <button class="btn btn-outline-secondary btn-sm" onclick="resetFilters()">Xóa bộ lọc</button>
+          </div>
+        </div>
+
+        <script>
+          function resetFilters() {
+            document.getElementById('memberSearchInput').value = '';
+            document.getElementById('industryFilter').value = '';
+            filterMembers('', '');
+          }
+        </script>
+
+        <div class="row">
+          <t t-foreach="members" t-as="member">
+            <div class="col-md-4 col-sm-6 mb-4 card-container">
+              <div class="card h-100 shadow-sm">
+                <a t-att-href="'/partners/%s' % slug(member)" class="text-decoration-none text-dark">
+                  <img t-att-src="member.image_1920 and '/web/image/res.partner/%s/image_1920' % member.id or '/membership_profile_search/static/img/placeholder.png'"
+                       t-att-alt="'Member Avatar: ' + (member.name or '')"
+                       class="card-img-top rounded-circle mx-auto mt-3"
+                       style="width: 120px; height: 120px; object-fit: cover;"/>
+                  <div class="card-body text-center">
+                    <h5 class="card-title">
+                      <strong><t t-esc="member.name or ''"/></strong>
+                    </h5>
+                    <p class="card-text">
+                      <strong>Công ty: </strong>
+                      <t t-esc="member.company_name or member.parent_id.name or member.commercial_company_name or '-'"/>
+                    </p>
+                    <p class="card-text">
+                      <strong>Ngành nghề: </strong>
+                      <t t-esc="member.industry_id.name or ''"/>
+                    </p>
+                    <p class="card-text">
+                      <strong>Địa chỉ: </strong>
+                      <t t-esc="', '.join(filter(None, [member.street or '', member.city or '', member.state_id.name or '', member.country_id.name or ''])) or ''"/>
+                    </p>
+                  </div>
+                </a>
+              </div>
+            </div>
+          </t>
+        </div>
+
+        <style>
+          .container.mt-4 {
+            padding-top: 20px;
+          }
+          h1 {
+            text-align: center;
+            font-size: 2.5rem;
+            color: #278F84;
+            margin-bottom: 10px;
+          }
+          .input-group {
+            max-width: 100%;
+            margin: 0 auto;
+          }
+          .form-control {
+            border-radius: 5px 0 0 5px;
+          }
+          .btn-primary {
+            background-color: #278F84;
+            border-color: #278F84;
+            border-radius: 0 5px 5px 0;
+          }
+          .btn-primary:hover {
+            background-color: #1d6a62;
+            border-color: #1d6a62;
+          }
+          .btn-outline-secondary {
+            color: #278F84;
+            border-color: #278F84;
+          }
+          .btn-outline-secondary:hover {
+            background-color: #278F84;
+            color: white;
+          }
+          .row {
+            margin-top: 20px;
+          }
+          .card {
+            border: none;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            background-color: #fff;
+            transition: transform 0.2s;
+          }
+          .card:hover {
+            transform: translateY(-5px);
+          }
+          .card-img-top {
+            width: 120px;
+            height: 120px;
+            object-fit: cover;
+            border-radius: 50%;
+            margin-top: 20px;
+            border: 4px solid #278F84;
+          }
+          .card-body {
+            padding: 15px;
+            text-align: center;
+          }
+          .card-title {
+            font-size: 1.25rem;
+            font-weight: bold;
+            color: #278F84;
+          }
+          .card-text {
+            font-size: 0.9rem;
+            color: #666;
+            margin-bottom: 5px;
+          }
+          .card-text strong {
+            color: #278F84;
+          }
+          .filter-stats {
+            font-size: 0.9rem;
+            color: #666;
+          }
+        </style>
+      <script>
+          function searchMembers() {
+            try {
+              var searchTerm = document.getElementById('memberSearchInput').value.toLowerCase();
+              var industry = document.getElementById('industryFilter').value;
+              filterMembers(searchTerm, industry);
+            } catch (error) {
+              console.error("Error in searchMembers:", error);
+            }
+          }
+
+          function filterByIndustry() {
+            try {
+              var searchTerm = document.getElementById('memberSearchInput').value.toLowerCase();
+              var industry = document.getElementById('industryFilter').value;
+              filterMembers(searchTerm, industry);
+            } catch (error) {
+              console.error("Error in filterByIndustry:", error);
+            }
+          }
+
+          function filterMembers(searchTerm, industry) {
+            var cards = document.querySelectorAll('.card');
+
+            cards.forEach(function(card) {
+              var name = card.querySelector('.card-title strong') ? card.querySelector('.card-title strong').textContent.toLowerCase() : '';
+              var company = card.querySelector('.card-text:nth-child(2)') ? card.querySelector('.card-text:nth-child(2)').textContent.toLowerCase() : '';
+              var cardIndustry = card.querySelector('.card-text:nth-child(3)') ? card.querySelector('.card-text:nth-child(3)').textContent.toLowerCase() : '';
+              var address = card.querySelector('.card-text:nth-child(4)') ? card.querySelector('.card-text:nth-child(4)').textContent.toLowerCase() : '';
+
+              var matchesSearch = !searchTerm || 
+                name.includes(searchTerm) || 
+                company.includes(searchTerm) || 
+                cardIndustry.includes(searchTerm) || 
+                address.includes(searchTerm);
+
+              var matchesIndustry = !industry || cardIndustry.includes(industry.toLowerCase());
+
+              if (matchesSearch &amp;&amp; matchesIndustry) {
+                card.parentElement.style.display = 'block';
+              } else {
+                card.parentElement.style.display = 'none';
+              }
+            });
+
+            updateMemberCounter();
+          }
+
+          function updateMemberCounter() {
+            var visibleCards = document.querySelectorAll('.card-container:not([style*="display: none"])').length;
+            var counterElement = document.getElementById('memberCounter');
+            if (counterElement) {
+              counterElement.textContent = visibleCards;
+            }
+          }
+
+          document.getElementById('memberSearchInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+              searchMembers();
+            }
+          });
+
+          document.getElementById('industryFilter').addEventListener('change', function() {
+            filterByIndustry();
+          });
+
+          document.addEventListener('DOMContentLoaded', function() {
+            updateMemberCounter();
+          });
+        </script>
+      </div>
+    </t>
+  </template>
 </odoo>

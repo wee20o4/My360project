@@ -22,10 +22,8 @@ class MembershipProfileSearchController(http.Controller):
 
     @http.route('/partners/<model("res.partner"):partner>', type='http', auth='public', website=True)
     def member_detail(self, partner, **kwargs):
-        # Check if the user has internal permissions (e.g., base.group_user)
         is_authorized = request.env.user.has_group('base.group_user')
         
-        # Restrict access for public users to published profiles with active membership
         if not is_authorized and (not partner.website_published or partner.membership_state == 'none'):
             raise NotFound()
 
