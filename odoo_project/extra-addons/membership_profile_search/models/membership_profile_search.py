@@ -1,4 +1,3 @@
-# extra-addons/membership_profile_search/models/membership_profile_search.py
 from odoo import fields, models, api
 
 class MembershipProfileSearch(models.Model):
