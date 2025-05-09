@@ -1,3 +1,4 @@
+<!-- extra-addons/membership_profile_search/security/ir.model.access.csv -->
 id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
 access_membership_profile_search_public,membership_profile_search.public,model_res_partner,base.group_public,1,0,0,0
 access_membership_profile_search_user,membership_profile_search.user,model_res_partner,base.group_user,1,1,1,0
