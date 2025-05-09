@@ -15,12 +15,9 @@ class MembershipProfileSearch(models.Model):
     @api.depends('parent_id', 'parent_id.name')
     def _compute_company_name(self):
         for partner in self:
-            try:
-                if partner.parent_id:
-                    partner.company_name = partner.parent_id.name or ''
-                elif partner.is_company:
-                    partner.company_name = partner.name or ''
-                else:
-                    partner.company_name = ''
-            except Exception:
+            if partner.parent_id:
+                partner.company_name = partner.parent_id.name or ''
+            elif partner.is_company:
+                partner.company_name = partner.name or ''
+            else:
                 partner.company_name = ''
