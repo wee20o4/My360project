@@ -4,7 +4,7 @@ class MembershipProfileSearch(models.Model):
     _inherit = 'res.partner'
     _description = 'Membership Profile Search'
 
-    image_1920 = fields.Image(string='Avatar', max_width=1920, max_height=1920)
+    image_1920 = fields.Image(string='Profile Image', max_width=1920, max_height=1920)
     company_name = fields.Char(string='Company Name', store=True, compute='_compute_company_name', readonly=False)
     industry_id = fields.Many2one('res.partner.industry', string='Industry')
     street = fields.Char(string='Street')

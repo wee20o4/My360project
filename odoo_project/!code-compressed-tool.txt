@@ -33,35 +33,7 @@ odoo-db-data:
 addons_path = /mnt/extra-addons,/usr/lib/python3/dist-packages/odoo/addons
 data_dir = /var/lib/odoo
 admin_passwd = $pbkdf2-sha512$600000$7l3r3RtjzPl/T.ndW.s9pw$qRk38ix6.beNhYNu7/cDIfvYpQY7JxkwWabb9x9NmePICsxXLqaCoj/f6SwTg8arZFJtLR2Uke8Si72GbP0BZg
-<<<<<<< HEAD
 dev_mode = False
-<<<<<<< HEAD
----run.py
-import subprocess
-import time
-import webbrowser
-
-=======
-
----run.py
->>>>>>> parent of 5fd2722 (Noting)
-def wait_for_odoo():
-while True:
-try:
-subprocess.run(["curl", "-f", "http://localhost:8069"], timeout=5)
-print("✅ Odoo is ready!")
-break
-except subprocess.CalledProcessError:
-print("⏳ Waiting for Odoo...")
-time.sleep(5)
-
-<<<<<<< HEAD
-if __name__ == "__main__":
-subprocess.run(["docker-compose", "up", "--build", "-d"])
-wait_for_odoo()
-webbrowser.open("http://localhost:8069")
-=======
->>>>>>> parent of eb2ded5 (up)
 ---.idea\projectSettingsUpdater.xml
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
@@ -123,12 +95,6 @@ webbrowser.open("http://localhost:8069")
 <option name="CLEAR_INITIAL_COMMIT_MESSAGE" value="true" />
 </component>
 </project>
-=======
-# In main():
-run_command("docker-compose up --build -d")
-wait_for_odoo()
-webbrowser.open("http://localhost:8069")
->>>>>>> parent of 5fd2722 (Noting)
 ---extra-addons\membership_profile_search\__init__.py
 from . import controllers
 from . import models
@@ -137,7 +103,7 @@ from . import models
 'name': 'Membership Profile Search',
 'version': '1.0',
 'summary': 'Manage members and display public list with search functionality',
-'depends': ['base', 'website', 'membership', 'website_partner'],
+'depends': ['base', 'website', 'membership', 'website_partner', 'web_editor'],
 'data': [
 'security/ir.model.access.csv',
 'views/membership_profile_search_templates.xml',
@@ -160,6 +126,7 @@ from werkzeug.exceptions import NotFound
 class MembershipProfileSearchController(http.Controller):
 @http.route('/membership', type='http', auth='public', website=True)
 def list_members(self, **kwargs):
+try:
 members = request.env['res.partner'].sudo().search([
 ('membership_state', '!=', 'none'),
 ('website_published', '=', True),
@@ -171,6 +138,18 @@ return request.render('membership_profile_search.membership_profile_search_list_
 'members': members,
 'search': kwargs.get('search', '')
 })
+except Exception as e:
+# Log the error and return a user-friendly message
+request.env['ir.logging'].sudo().create({
+'name': 'MembershipProfileSearch',
+'type': 'server',
+'level': 'ERROR',
+'message': str(e),
+'path': '/membership',
+'func': 'list_members',
+'line': 1,
+})
+return request.render('website.page_404', {'error': 'An error occurred while loading the member list.'})
 
 @http.route('/partners/<model("res.partner"):partner>', type='http', auth='public', website=True)
 def member_detail(self, partner, **kwargs):
@@ -185,7 +164,7 @@ return request.render("website_partner.partner_page", values)
 ---extra-addons\membership_profile_search\controllers\__init__.py
 from . import main
 ---extra-addons\membership_profile_search\controllers\__pycache__\main.cpython-39.pyc
-[ERROR READING FILE: 'utf-8' codec can't decode byte 0xa9 in position 8: invalid start byte]
+[ERROR READING FILE: 'utf-8' codec can't decode byte 0x90 in position 12: invalid start byte]
 ---extra-addons\membership_profile_search\controllers\__pycache__\__init__.cpython-39.pyc
 [ERROR READING FILE: 'utf-8' codec can't decode byte 0xbb in position 9: invalid start byte]
 ---extra-addons\membership_profile_search\models\membership_profile_search.py
@@ -195,7 +174,7 @@ class MembershipProfileSearch(models.Model):
 _inherit = 'res.partner'
 _description = 'Membership Profile Search'
 
-image_1920 = fields.Image(string='Avatar', max_width=1920, max_height=1920)
+image_1920 = fields.Image(string='Profile Image', max_width=1920, max_height=1920)
 company_name = fields.Char(string='Company Name', store=True, compute='_compute_company_name', readonly=False)
 industry_id = fields.Many2one('res.partner.industry', string='Industry')
 street = fields.Char(string='Street')
@@ -215,100 +194,76 @@ partner.company_name = ''
 ---extra-addons\membership_profile_search\models\__init__.py
 from . import membership_profile_search
 ---extra-addons\membership_profile_search\models\__pycache__\membership_profile_search.cpython-39.pyc
-[ERROR READING FILE: 'utf-8' codec can't decode byte 0xe8 in position 8: invalid continuation byte]
+[ERROR READING FILE: 'utf-8' codec can't decode byte 0xcb in position 8: invalid continuation byte]
 ---extra-addons\membership_profile_search\models\__pycache__\__init__.cpython-39.pyc
 [ERROR READING FILE: 'utf-8' codec can't decode byte 0xe2 in position 8: invalid continuation byte]
 ---extra-addons\membership_profile_search\security\ir.model.access.csv
 id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
 access_membership_profile_search_public,membership_profile_search.public,model_res_partner,base.group_public,1,0,0,0
 access_membership_profile_search_user,membership_profile_search.user,model_res_partner,base.group_user,1,1,1,0
-<<<<<<< HEAD
 ---extra-addons\membership_profile_search\static\src\js\membership_search.js
-<<<<<<< HEAD
-document.addEventListener("DOMContentLoaded", function() {
-// Get elements safely with null checks
+document.addEventListener("DOMContentLoaded", function () {
 const searchInput = document.getElementById("memberSearchInput");
-const industryFilter = document.getElementById("industryFilter");
 const counterElement = document.getElementById("memberCounter");
-=======
----extra-addons\membership_profile_search\views\membership_profile_search_templates.xml
-<?xml version="1.0" encoding="UTF-8"?>
-<odoo>
-<template id="membership_profile_search_list_template" name="Membership Profile Search List">
-<t t-call="website.layout">
-<div class="container mt-4">
-<h1>Danh sách hội viên</h1>
-<p style="margin-bottom: 30px;">
-Hội viên chính thức được công nhận và lưu giữ hồ sơ điện tử tại Hiệp hội Doanh nghiệp Nhỏ và Vừa TP. Vũng Tàu là những cá nhân hoặc tổ chức đã vượt qua quy trình thẩm định chất lượng nghiêm ngặt của Hiệp hội, đồng thời hoàn thành đầy đủ các nghĩa vụ đóng góp tài chính theo quy định. Tư cách này mang lại cho hội viên những quyền lợi đặc biệt, khẳng định uy tín và sự cam kết trong việc đồng hành cùng sự phát triển bền vững của cộng đồng doanh nghiệp Nhỏ và Vừa TP. Vũng Tàu.
-</p>
-<br/><br/>
-<!-- Search Bar -->
-<div class="row mb-4">
-<div class="col-12">
-<div class="input-group">
-<input type="text" class="form-control" placeholder="Tìm kiếm theo tên, công ty, ngành nghề hoặc địa chỉ..." id="memberSearchInput"/>
-<div class="input-group-append">
-<button class="btn btn-primary" type="button" onclick="searchMembers()">Tìm kiếm</button>
-</div>
-</div>
-</div>
-</div>
-<br/><br/>
-<!-- JavaScript for Client-Side Search -->
-<script>
-function searchMembers() {
-var searchTerm = document.getElementById('memberSearchInput').value.toLowerCase();
-var cards = document.querySelectorAll('.card');
->>>>>>> parent of 5fd2722 (Noting)
 
-// Initialize counter
 updateMemberCounter();
 
-// Add event listeners only if elements exist
 if (searchInput) {
-searchInput.addEventListener("keypress", function(e) {
+searchInput.addEventListener("keypress", function (e) {
 if (e.key === "Enter") {
 searchMembers();
 }
 });
-<<<<<<< HEAD
-}
-
-if (industryFilter) {
-industryFilter.addEventListener("change", function() {
-filterByIndustry();
-});
 }
 });
 
-=======
->>>>>>> parent of eb2ded5 (up)
 function resetFilters() {
-document.getElementById("memberSearchInput").value = "";
-document.getElementById("industryFilter").value = "";
+const searchInput = document.getElementById("memberSearchInput");
+const industryButtons = document.querySelectorAll(".industry-btn");
+
+if (searchInput) searchInput.value = "";
+if (industryButtons) {
+industryButtons.forEach((btn) => {
+btn.classList.remove("active");
+if (btn.getAttribute("data-industry") === "") {
+btn.classList.add("active");
+}
+});
+}
+
 filterMembers("", "");
 }
 
 function searchMembers() {
 try {
-var searchTerm = document
-.getElementById("memberSearchInput")
-.value.toLowerCase();
-var industry = document.getElementById("industryFilter").value;
+const searchInput = document.getElementById("memberSearchInput");
+const activeButton = document.querySelector(".industry-btn.active");
+
+const searchTerm = searchInput ? searchInput.value.toLowerCase() : "";
+const industry = activeButton
+? activeButton.getAttribute("data-industry")
+: "";
+
 filterMembers(searchTerm, industry);
 } catch (error) {
 console.error("Error in searchMembers:", error);
 }
-=======
->>>>>>> parent of 5fd2722 (Noting)
 }
 
-function filterByIndustry() {
+function filterByIndustry(industry) {
 try {
-var searchTerm = document
-.getElementById("memberSearchInput")
-.value.toLowerCase();
-var industry = document.getElementById("industryFilter").value;
+const searchInput = document.getElementById("memberSearchInput");
+const industryButtons = document.querySelectorAll(".industry-btn");
+
+const searchTerm = searchInput ? searchInput.value.toLowerCase() : "";
+
+industryButtons.forEach((btn) => {
+btn.classList.remove("active");
+if (btn.getAttribute("data-industry") === industry) {
+btn.classList.add("active");
+}
+});
+
 filterMembers(searchTerm, industry);
 } catch (error) {
 console.error("Error in filterByIndustry:", error);
@@ -316,30 +271,30 @@ console.error("Error in filterByIndustry:", error);
 }
 
 function filterMembers(searchTerm, industry) {
-var cards = document.querySelectorAll(".card");
+const cards = document.querySelectorAll(".card");
 
 cards.forEach(function (card) {
-var name = card.querySelector(".card-title strong")
+const name = card.querySelector(".card-title strong")
 ? card.querySelector(".card-title strong").textContent.toLowerCase()
 : "";
-var company = card.querySelector(".card-text:nth-child(2)")
+const company = card.querySelector(".card-text:nth-child(2)")
 ? card.querySelector(".card-text:nth-child(2)").textContent.toLowerCase()
 : "";
-var cardIndustry = card.querySelector(".card-text:nth-child(3)")
+const cardIndustry = card.querySelector(".card-text:nth-child(3)")
 ? card.querySelector(".card-text:nth-child(3)").textContent.toLowerCase()
 : "";
-var address = card.querySelector(".card-text:nth-child(4)")
+const address = card.querySelector(".card-text:nth-child(4)")
 ? card.querySelector(".card-text:nth-child(4)").textContent.toLowerCase()
 : "";
 
-var matchesSearch =
+const matchesSearch =
 !searchTerm ||
 name.includes(searchTerm) ||
 company.includes(searchTerm) ||
 cardIndustry.includes(searchTerm) ||
 address.includes(searchTerm);
 
-var matchesIndustry =
+const matchesIndustry =
 !industry || cardIndustry.includes(industry.toLowerCase());
 
 if (matchesSearch && matchesIndustry) {
@@ -348,96 +303,27 @@ card.parentElement.style.display = "block";
 card.parentElement.style.display = "none";
 }
 });
-<<<<<<< HEAD
 
 updateMemberCounter();
 }
 
 function updateMemberCounter() {
-var visibleCards = document.querySelectorAll(
+const visibleCards = document.querySelectorAll(
 '.card-container:not([style*="display: none"])'
 ).length;
-var counterElement = document.getElementById("memberCounter");
+const counterElement = document.getElementById("memberCounter");
+
 if (counterElement) {
 counterElement.textContent = visibleCards;
 }
 }
-
-document
-.getElementById("memberSearchInput")
-.addEventListener("keypress", function (e) {
-if (e.key === "Enter") {
-searchMembers();
-}
-});
-
-document
-.getElementById("industryFilter")
-.addEventListener("change", function () {
-filterByIndustry();
-});
-
-document.addEventListener("DOMContentLoaded", function () {
-updateMemberCounter();
-});
 ---extra-addons\membership_profile_search\views\membership_profile_search_templates.xml
 <?xml version="1.0" encoding="UTF-8"?>
 <odoo>
 <template id="membership_profile_search_list_template" name="Membership Profile Search List">
 <t t-call="website.layout">
 <t t-set="head">
-<<<<<<< HEAD
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
-=======
-</script>
-
-<!-- Member List -->
-<div class="row">
-<t t-foreach="members" t-as="member">
-<div class="col-md-4 col-sm-6 mb-4">
-<div class="card h-100 shadow-sm">
-<a t-att-href="'/partners/%s' % slug(member)" class="text-decoration-none text-dark">
-<img t-att-src="member.image_1920 and '/web/image/res.partner/%s/image_1920' % member.id or '/membership_profile_search/static/img/placeholder.png'"
-t-att-alt="'Member Avatar: ' + (member.name or '')"
-class="card-img-top rounded-circle mx-auto mt-3"
-style="width: 120px; height: 120px; object-fit: cover;"/>
-<div class="card-body text-center">
-<h5 class="card-title">
-<strong><t t-esc="member.name or ''"/></strong>
-</h5>
-<p class="card-text">
-<strong>Công ty: </strong>
-<t t-if="member.parent_id">
-<t t-esc="member.parent_id.name or ''"/>
-</t>
-<t t-elif="member.company_name">
-<t t-esc="member.company_name or ''"/>
-</t>
-<t t-elif="member.commercial_company_name">
-<t t-esc="member.commercial_company_name or ''"/>
-</t>
-<t t-else="">-</t>
-</p>
-<p class="card-text">
-<strong>Ngành nghề: </strong>
-<t t-esc="member.industry_id.name or ''"/>
-</p>
-<p class="card-text">
-<strong>Địa chỉ: </strong>
-<t t-esc="', '.join(filter(None, [member.street or '', member.city or '', member.state_id.name or '', member.country_id.name or ''])) or ''"/>
-</p>
-</div>
-</a>
-</div>
-</div>
-</t>
-</div>
-
-<!-- Styles -->
->>>>>>> parent of 5fd2722 (Noting)
-=======
-<meta name="apple-mobile-web-app-capable" content="yes"/>
->>>>>>> parent of eb2ded5 (up)
 <style>
 .container.mt-4 {
 padding-top: 20px;
@@ -502,7 +388,7 @@ font-size: 1.25rem;
 font-weight: bold;
 color: #278F84;
 }
-.card-text {
+#\n.card-text {
 font-size: 0.9rem;
 color: #666;
 margin-bottom: 5px;
@@ -514,10 +400,30 @@ color: #278F84;
 font-size: 0.9rem;
 color: #666;
 }
+.industry-buttons {
+display: flex;
+flex-wrap: wrap;
+gap: 10px;
+}
+.industry-btn {
+background-color: #f8f9fa;
+border: 1px solid #278F84;
+color: #278F84;
+padding: 8px 16px;
+border-radius: 5px;
+font-size: 0.9rem;
+cursor: pointer;
+transition: all 0.2s;
+}
+.industry-btn:hover,
+.industry-btn.active {
+background-color: #278F84;
+color: white;
+}
 </style>
 </t>
 <div class="container mt-4">
-<h1>Danh sách hội viên 123</h1>
+<h1>Danh sách hội viên</h1>
 <p style="margin-bottom: 30px;">
 Hội viên chính thức được công nhận và lưu giữ hồ sơ điện tử tại Hiệp hội Doanh nghiệp Nhỏ và Vừa TP. Vũng Tàu là những cá nhân hoặc tổ chức đã vượt qua quy trình thẩm định chất lượng nghiêm ngặt của Hiệp hội, đồng thời hoàn thành đầy đủ các nghĩa vụ đóng góp tài chính theo quy định. Tư cách này mang lại cho hội viên những quyền lợi đặc biệt, khẳng định uy tín và sự cam kết trong việc đồng hành cùng sự phát triển bền vững của cộng đồng doanh nghiệp Nhỏ và Vừa TP. Vũng Tàu.
 </p>
@@ -530,19 +436,21 @@ Hội viên chính thức được công nhận và lưu giữ hồ sơ điện 
 </div>
 </div>
 </div>
+<br></br>
 <div class="col-md-4">
-<div class="input-group">
-<select class="form-control" id="industryFilter">
-<option value="">-- Tất cả ngành nghề --</option>
-<t t-foreach="request.env['res.partner.industry'].sudo().search([])" t-as="industry">
-<option t-att-value="industry.name">
+<div class="industry-buttons" id="industryFilter">
+<button class="industry-btn active" data-industry="" onclick="filterByIndustry('')">Tất cả ngành nghề</button>
+<t t-set="industries" t-value="request.env['res.partner.industry'].sudo().search([('id', 'in', members.mapped('industry_id').ids)])"/>
+<t t-if="industries">
+<t t-foreach="industries" t-as="industry">
+<button class="industry-btn" t-att-data-industry="industry.name" t-att-onclick="'filterByIndustry(&quot;' + industry.name + '&quot;)'">
 <t t-esc="industry.name"/>
-</option>
+</button>
 </t>
-</select>
-<div class="input-group-append">
-<button class="btn btn-primary" type="button" onclick="filterByIndustry()">Lọc</button>
-</div>
+</t>
+<t t-else="">
+<span>Không có ngành nghề nào</span>
+</t>
 </div>
 </div>
 </div>
@@ -589,8 +497,7 @@ style="width: 120px; height: 120px; object-fit: cover;"/>
 </t>
 </div>
 </div>
-<div>Test Update: {{ datetime.now() }}</div>
-<script src="/membership_profile_search/static/src/js/membership_search.js"></script>
+<script type="text/javascript" src="/membership_profile_search/static/src/js/membership_search.js"></script>
 </t>
 </template>
 </odoo>

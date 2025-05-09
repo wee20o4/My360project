@@ -14,9 +14,14 @@
                         color: #278F84;
                         margin-bottom: 10px;
                     }
+                    .search-container {
+                        display: flex;
+                        justify-content: center;
+                        margin-bottom: 20px;
+                    }
                     .input-group {
-                        max-width: 100%;
-                        margin: 0 auto;
+                        max-width: 600px;
+                        width: 100%;
                     }
                     .form-control {
                         border-radius: 5px 0 0 5px;
@@ -30,11 +35,29 @@
                         background-color: #1d6a62;
                         border-color: #1d6a62;
                     }
-                    .btn-outline-secondary {
-                        color: #278F84;
-                        border-color: #278F84;
+                    .industry-filter-container {
+                        display: flex;
+                        justify-content: center;
+                        margin-bottom: 20px;
                     }
-                    .btn-outline-secondary:hover {
+                    .industry-buttons {
+                        display: flex;
+                        flex-wrap: wrap;
+                        gap: 10px;
+                        justify-content: center;
+                    }
+                    .industry-btn {
+                        background-color: #f8f9fa;
+                        border: 1px solid #278F84;
+                        color: #278F84;
+                        padding: 8px 16px;
+                        border-radius: 5px;
+                        font-size: 0.9rem;
+                        cursor: pointer;
+                        transition: all 0.2s;
+                    }
+                    .industry-btn:hover,
+                    .industry-btn.active {
                         background-color: #278F84;
                         color: white;
                     }
@@ -79,53 +102,42 @@
                     .filter-stats {
                         font-size: 0.9rem;
                         color: #666;
+                        text-align: center;
                     }
                 </style>
             </t>
             <div class="container mt-4">
-                <h1>Danh sách hội viên 123</h1>
+                <h1>Danh sách hội viên</h1>
                 <p style="margin-bottom: 30px;">
                     Hội viên chính thức được công nhận và lưu giữ hồ sơ điện tử tại Hiệp hội Doanh nghiệp Nhỏ và Vừa TP. Vũng Tàu là những cá nhân hoặc tổ chức đã vượt qua quy trình thẩm định chất lượng nghiêm ngặt của Hiệp hội, đồng thời hoàn thành đầy đủ các nghĩa vụ đóng góp tài chính theo quy định. Tư cách này mang lại cho hội viên những quyền lợi đặc biệt, khẳng định uy tín và sự cam kết trong việc đồng hành cùng sự phát triển bền vững của cộng đồng doanh nghiệp Nhỏ và Vừa TP. Vũng Tàu.
                 </p>
-                <div class="row mb-4">
-                    <div class="col-md-8">
-                        <div class="input-group">
-                            <input type="text" class="form-control" placeholder="Tìm kiếm theo tên, công ty, ngành nghề hoặc địa chỉ..." id="memberSearchInput"/>
-                            <div class="input-group-append">
-                                <button class="btn btn-primary" type="button" onclick="searchMembers()">Tìm kiếm</button>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="input-group">
-                            <select class="form-control" id="industryFilter">
-                                <option value="">-- Tất cả ngành nghề --</option>
-                                <t t-set="industries" t-value="request.env['res.partner.industry'].sudo().search([])"/>
-                                <t t-if="industries">
-                                    <t t-foreach="industries" t-as="industry">
-                                        <option t-att-value="industry.name">
-                                            <t t-esc="industry.name"/>
-                                        </option>
-                                    </t>
-                                </t>
-                                <t t-else="">
-                                    <option value="">Không có ngành nghề nào</option>
-                                </t>
-                            </select>
-                            <div class="input-group-append">
-                                <button class="btn btn-primary" type="button" onclick="filterByIndustry()">Lọc</button>
-                            </div>
+                <div class="search-container">
+                    <div class="input-group">
+                        <input type="text" class="form-control" placeholder="Tìm kiếm theo tên, công ty, ngành nghề hoặc địa chỉ..." id="memberSearchInput"/>
+                        <div class="input-group-append">
+                            <button class="btn btn-primary" type="button" onclick="searchMembers()">Tìm kiếm</button>
                         </div>
                     </div>
                 </div>
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <div class="filter-stats">
-                        Hiển thị
-                        <span id="memberCounter">0</span> hội viên
+                <div class="industry-filter-container">
+                    <div class="industry-buttons" id="industryFilter">
+                        <button class="industry-btn active" data-industry="" onclick="filterByIndustry('')">Tất cả ngành nghề</button>
+                        <t t-set="industries" t-value="request.env['res.partner.industry'].sudo().search([('id', 'in', members.mapped('industry_id').ids)])"/>
+                        <t t-if="industries">
+                            <t t-foreach="industries" t-as="industry">
+                                <button class="industry-btn" t-att-data-industry="industry.name" t-att-onclick="'filterByIndustry(&quot;' + industry.name + '&quot;)'">
+                                  <t t-esc="industry.name"/>
+                                </button>
+                              </t>
+                        </t>
+                        <t t-else="">
+                            <span>Không có ngành nghề nào</span>
+                        </t>
                     </div>
-                    <div class="filter-reset">
-                        <button class="btn btn-outline-secondary btn-sm" onclick="resetFilters()">Xóa bộ lọc</button>
-                    </div>
+                </div>
+                <div class="filter-stats mb-3">
+                    Kết quả tìm được 
+                    <span id="memberCounter">0</span> hội viên
                 </div>
                 <div class="row">
                     <t t-foreach="members" t-as="member">

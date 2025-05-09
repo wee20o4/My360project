@@ -1,7 +1,6 @@
 services:
   odoo:
     image: odoo:16.0
-    command: ["odoo", "-u", "membership_profile_search", "--dev=reload"]
     depends_on:
       - db
     ports:
