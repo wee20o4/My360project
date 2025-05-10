@@ -12,8 +12,9 @@
         'web.assets_frontend': [
             'membership_profile_search/static/img/placeholder.png',
             'membership_profile_search/static/src/js/membership_search.js',
-        ],
-    },
+            'membership_profile_search/static/src/css/membership_search.css',
+    ],
+},
     'installable': True,
     'application': True,
 }

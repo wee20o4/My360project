@@ -1,3 +1,5 @@
+// extra-addons/membership_profile_search/static/src/js/membership_search.js
+
 document.addEventListener("DOMContentLoaded", function () {
   const searchInput = document.getElementById("memberSearchInput");
   const counterElement = document.getElementById("memberCounter");
@@ -13,21 +15,30 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 });
 
+// Hàm chuẩn hóa chuỗi không dấu
+function removeDiacritics(str) {
+  return str
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/g, "d")
+    .replace(/Đ/g, "D");
+}
+
 function resetFilters() {
-    const searchInput = document.getElementById("memberSearchInput");
-    const industryButtons = document.querySelectorAll(".industry-btn");
+  const searchInput = document.getElementById("memberSearchInput");
+  const industryButtons = document.querySelectorAll(".industry-btn");
 
-    if (searchInput) searchInput.value = "";
-    if (industryButtons) {
-        industryButtons.forEach((btn) => {
-            btn.classList.remove("active");
-            if (btn.getAttribute("data-industry") === "") {
-                btn.classList.add("active");
-            }
-        });
-    }
+  if (searchInput) searchInput.value = "";
+  if (industryButtons) {
+    industryButtons.forEach((btn) => {
+      btn.classList.remove("active");
+      if (btn.getAttribute("data-industry") === "") {
+        btn.classList.add("active");
+      }
+    });
+  }
 
-    filterMembers("", "");
+  filterMembers("", "");
 }
 
 function searchMembers() {
@@ -47,51 +58,67 @@ function searchMembers() {
 }
 
 function filterByIndustry(industry) {
-    try {
-        const searchInput = document.getElementById("memberSearchInput");
-        const industryButtons = document.querySelectorAll(".industry-btn");
+  try {
+    const searchInput = document.getElementById("memberSearchInput");
+    const industryButtons = document.querySelectorAll(".industry-btn");
 
-        searchInput.value = ""; // Clear search input
-        industryButtons.forEach((btn) => {
-            btn.classList.remove("active");
-            if (btn.getAttribute("data-industry") === industry) {
-                btn.classList.add("active");
-            }
-        });
+    searchInput.value = ""; // Clear search input
+    industryButtons.forEach((btn) => {
+      btn.classList.remove("active");
+      if (btn.getAttribute("data-industry") === industry) {
+        btn.classList.add("active");
+      }
+    });
 
-        filterMembers("", industry);
-    } catch (error) {
-        console.error("Error in filterByIndustry:", error);
-    }
+    filterMembers("", industry);
+  } catch (error) {
+    console.error("Error in filterByIndustry:", error);
+  }
 }
 
 function filterMembers(searchTerm, industry) {
   const cards = document.querySelectorAll(".card");
 
+  // Chuẩn hóa từ khóa tìm kiếm
+  const normalizedSearchTerm = removeDiacritics(searchTerm).toLowerCase();
+
   cards.forEach(function (card) {
+    // Lấy dữ liệu từ card và chuẩn hóa
     const name = card.querySelector(".card-title strong")
-      ? card.querySelector(".card-title strong").textContent.toLowerCase()
+      ? removeDiacritics(
+          card.querySelector(".card-title strong").textContent
+        ).toLowerCase()
       : "";
     const company = card.querySelector(".card-text:nth-child(2)")
-      ? card.querySelector(".card-text:nth-child(2)").textContent.toLowerCase()
+      ? removeDiacritics(
+          card.querySelector(".card-text:nth-child(2)").textContent
+        ).toLowerCase()
       : "";
-    const cardIndustry = card.querySelector(".card-text:nth-child(3)")
-      ? card.querySelector(".card-text:nth-child(3)").textContent.toLowerCase()
+    const industryElement = card.querySelector(".card-text:nth-child(3)");
+    const cardIndustry = industryElement
+      ? removeDiacritics(
+          industryElement.getAttribute("data-industry") || ""
+        ).toLowerCase()
       : "";
     const address = card.querySelector(".card-text:nth-child(4)")
-      ? card.querySelector(".card-text:nth-child(4)").textContent.toLowerCase()
+      ? removeDiacritics(
+          card.querySelector(".card-text:nth-child(4)").textContent
+        ).toLowerCase()
       : "";
 
+    // Kiểm tra khớp với từ khóa tìm kiếm
     const matchesSearch =
-      !searchTerm ||
-      name.includes(searchTerm) ||
-      company.includes(searchTerm) ||
-      cardIndustry.includes(searchTerm) ||
-      address.includes(searchTerm);
+      !normalizedSearchTerm ||
+      name.includes(normalizedSearchTerm) ||
+      company.includes(normalizedSearchTerm) ||
+      cardIndustry.includes(normalizedSearchTerm) ||
+      address.includes(normalizedSearchTerm);
 
+    // Kiểm tra khớp với ngành nghề
     const matchesIndustry =
-      !industry || cardIndustry.includes(industry.toLowerCase());
+      !industry || cardIndustry === removeDiacritics(industry).toLowerCase();
 
+    // Hiển thị hoặc ẩn card
     if (matchesSearch && matchesIndustry) {
       card.parentElement.style.display = "block";
     } else {

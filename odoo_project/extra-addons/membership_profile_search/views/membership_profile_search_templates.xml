@@ -4,113 +4,13 @@
         <t t-call="website.layout">
             <t t-set="head">
                 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
-                <style>
-                    .container.mt-4 {
-                        padding-top: 20px;
-                    }
-                    h1 {
-                        text-align: center;
-                        font-size: 2.5rem;
-                        color: #278F84;
-                        margin-bottom: 10px;
-                    }
-                    .search-container {
-                        display: flex;
-                        justify-content: center;
-                        margin-bottom: 20px;
-                    }
-                    .input-group {
-                        max-width: 600px;
-                        width: 100%;
-                    }
-                    .form-control {
-                        border-radius: 5px 0 0 5px;
-                    }
-                    .btn-primary {
-                        background-color: #278F84;
-                        border-color: #278F84;
-                        border-radius: 0 5px 5px 0;
-                    }
-                    .btn-primary:hover {
-                        background-color: #1d6a62;
-                        border-color: #1d6a62;
-                    }
-                    .industry-filter-container {
-                        display: flex;
-                        justify-content: center;
-                        margin-bottom: 20px;
-                    }
-                    .industry-buttons {
-                        display: flex;
-                        flex-wrap: wrap;
-                        gap: 10px;
-                        justify-content: center;
-                    }
-                    .industry-btn {
-                        background-color: #f8f9fa;
-                        border: 1px solid #278F84;
-                        color: #278F84;
-                        padding: 8px 16px;
-                        border-radius: 5px;
-                        font-size: 0.9rem;
-                        cursor: pointer;
-                        transition: all 0.2s;
-                    }
-                    .industry-btn:hover,
-                    .industry-btn.active {
-                        background-color: #278F84;
-                        color: white;
-                    }
-                    .row {
-                        margin-top: 20px;
-                    }
-                    .card {
-                        border: none;
-                        border-radius: 10px;
-                        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-                        background-color: #fff;
-                        transition: transform 0.2s;
-                    }
-                    .card:hover {
-                        transform: translateY(-5px);
-                    }
-                    .card-img-top {
-                        width: 120px;
-                        height: 120px;
-                        object-fit: cover;
-                        border-radius: 50%;
-                        margin-top: 20px;
-                        border: 4px solid #278F84;
-                    }
-                    .card-body {
-                        padding: 15px;
-                        text-align: center;
-                    }
-                    .card-title {
-                        font-size: 1.25rem;
-                        font-weight: bold;
-                        color: #278F84;
-                    }
-                    .card-text {
-                        font-size: 0.9rem;
-                        color: #666;
-                        margin-bottom: 5px;
-                    }
-                    .card-text strong {
-                        color: #278F84;
-                    }
-                    .filter-stats {
-                        font-size: 0.9rem;
-                        color: #666;
-                        text-align: center;
-                    }
-                </style>
+                <link rel="stylesheet" type="text/css" href="/membership_profile_search/static/src/css/membership_search.css"/>
             </t>
             <div class="container mt-4">
-                <h1>Danh sách hội viên</h1>
+                <h1>Danh sách hội viên 111</h1>
                 <p style="margin-bottom: 30px;">
-                    Hội viên chính thức được công nhận và lưu giữ hồ sơ điện tử tại Hiệp hội Doanh nghiệp Nhỏ và Vừa TP. Vũng Tàu là những cá nhân hoặc tổ chức đã vượt qua quy trình thẩm định chất lượng nghiêm ngặt của Hiệp hội, đồng thời hoàn thành đầy đủ các nghĩa vụ đóng góp tài chính theo quy định. Tư cách này mang lại cho hội viên những quyền lợi đặc biệt, khẳng định uy tín và sự cam kết trong việc đồng hành cùng sự phát triển bền vững của cộng đồng doanh nghiệp Nhỏ và Vừa TP. Vũng Tàu.
-                </p>
+Hội viên chính thức được công nhận và lưu giữ hồ sơ điện tử tại Hiệp hội Doanh nghiệp Nhỏ và Vừa TP. Vũng Tàu là những cá nhân hoặc tổ chức đã vượt qua quy trình thẩm định chất lượng nghiêm ngặt của Hiệp hội, đồng thời hoàn thành đầy đủ các nghĩa vụ đóng góp tài chính theo quy định. Tư cách này mang lại cho hội viên những quyền lợi đặc biệt, khẳng định uy tín và sự cam kết trong việc đồng hành cùng sự phát triển bền vững của cộng đồng doanh nghiệp Nhỏ và Vừa TP. Vũng Tàu.
+</p>
                 <div class="search-container">
                     <div class="input-group">
                         <input type="text" class="form-control" placeholder="Tìm kiếm theo tên, công ty, ngành nghề hoặc địa chỉ..." id="memberSearchInput"/>
@@ -126,9 +26,9 @@
                         <t t-if="industries">
                             <t t-foreach="industries" t-as="industry">
                                 <button class="industry-btn" t-att-data-industry="industry.name" t-att-onclick="'filterByIndustry(&quot;' + industry.name + '&quot;)'">
-                                  <t t-esc="industry.name"/>
+                                    <t t-esc="industry.name"/>
                                 </button>
-                              </t>
+                            </t>
                         </t>
                         <t t-else="">
                             <span>Không có ngành nghề nào</span>
@@ -136,7 +36,7 @@
                     </div>
                 </div>
                 <div class="filter-stats mb-3">
-                    Kết quả tìm được 
+Kết quả tìm được
                     <span id="memberCounter">0</span> hội viên
                 </div>
                 <div class="row">
@@ -145,9 +45,9 @@
                             <div class="card h-100 shadow-sm">
                                 <a t-att-href="'/partners/%s' % slug(member)" class="text-decoration-none text-dark">
                                     <img t-att-src="member.image_1920 and '/web/image/res.partner/%s/image_1920' % member.id or '/membership_profile_search/static/img/placeholder.png'"
-                                         t-att-alt="'Member Avatar: ' + (member.name or '')"
-                                         class="card-img-top rounded-circle mx-auto mt-3"
-                                         style="width: 120px; height: 120px; object-fit: cover;"/>
+t-att-alt="'Member Avatar: ' + (member.name or '')"
+class="card-img-top rounded-circle mx-auto mt-3"
+style="width: 120px; height: 120px; object-fit: cover;"/>
                                     <div class="card-body text-center">
                                         <h5 class="card-title">
                                             <strong>
@@ -158,7 +58,7 @@
                                             <strong>Công ty: </strong>
                                             <t t-esc="member.company_name or member.parent_id.name or member.commercial_company_name or '-'"/>
                                         </p>
-                                        <p class="card-text">
+                                        <p class="card-text" t-att-data-industry="member.industry_id.name or ''">
                                             <strong>Ngành nghề: </strong>
                                             <t t-esc="member.industry_id.name or ''"/>
                                         </p>

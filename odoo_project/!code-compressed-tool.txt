@@ -2,7 +2,6 @@
 services:
 odoo:
 image: odoo:16.0
-command: ["odoo", "-u", "membership_profile_search", "--dev=reload"]
 depends_on:
 - db
 ports:
@@ -113,30 +112,55 @@ from . import models
 'web.assets_frontend': [
 'membership_profile_search/static/img/placeholder.png',
 'membership_profile_search/static/src/js/membership_search.js',
+'membership_profile_search/static/src/css/membership_search.css',
 ],
 },
 'installable': True,
 'application': True,
 }
 ---extra-addons\membership_profile_search\controllers\main.py
+# extra-addons/membership_profile_search/controllers/main.py
+
 from odoo import http
 from odoo.http import request
 from werkzeug.exceptions import NotFound
+import unicodedata
+import re
+
+def remove_diacritics(text):
+"""Chuẩn hóa chuỗi không dấu."""
+text = unicodedata.normalize('NFD', text)
+text = re.sub(r'[\u0300-\u036f]', '', text)
+text = text.replace('đ', 'd').replace('Đ', 'D')
+return text
 
 class MembershipProfileSearchController(http.Controller):
 @http.route('/membership', type='http', auth='public', website=True)
 def list_members(self, **kwargs):
 try:
-members = request.env['res.partner'].sudo().search([
+search_term = kwargs.get('search', '').strip()
+domain = [
 ('membership_state', '!=', 'none'),
 ('website_published', '=', True),
-])
+]
+
+if search_term:
+# Chuẩn hóa từ khóa tìm kiếm
+normalized_search = remove_diacritics(search_term).lower()
+# Tìm kiếm không dấu trên các trường
+domain += ['|', '|', '|',
+('name', 'ilike', search_term),
+('company_name', 'ilike', search_term),
+('industry_id.name', 'ilike', search_term),
+('street', 'ilike', search_term)]
+
+members = request.env['res.partner'].sudo().search(domain)
 for member in members:
 if not member.company_name and member.parent_id:
 member.company_name = member.parent_id.name or ''
 return request.render('membership_profile_search.membership_profile_search_list_template', {
 'members': members,
-'search': kwargs.get('search', '')
+'search': search_term
 })
 except Exception as e:
 # Log the error and return a user-friendly message
@@ -164,7 +188,7 @@ return request.render("website_partner.partner_page", values)
 ---extra-addons\membership_profile_search\controllers\__init__.py
 from . import main
 ---extra-addons\membership_profile_search\controllers\__pycache__\main.cpython-39.pyc
-[ERROR READING FILE: 'utf-8' codec can't decode byte 0x90 in position 12: invalid start byte]
+[ERROR READING FILE: 'utf-8' codec can't decode byte 0xa2 in position 8: invalid start byte]
 ---extra-addons\membership_profile_search\controllers\__pycache__\__init__.cpython-39.pyc
 [ERROR READING FILE: 'utf-8' codec can't decode byte 0xbb in position 9: invalid start byte]
 ---extra-addons\membership_profile_search\models\membership_profile_search.py
@@ -201,7 +225,109 @@ from . import membership_profile_search
 id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
 access_membership_profile_search_public,membership_profile_search.public,model_res_partner,base.group_public,1,0,0,0
 access_membership_profile_search_user,membership_profile_search.user,model_res_partner,base.group_user,1,1,1,0
+---extra-addons\membership_profile_search\static\src\css\membership_search.css
+.container.mt-4 {
+padding-top: 20px;
+}
+h1 {
+text-align: center;
+font-size: 2.5rem;
+color: #278F84;
+margin-bottom: 10px;
+}
+.search-container {
+display: flex;
+justify-content: center;
+margin-bottom: 20px;
+}
+.input-group {
+max-width: 600px;
+width: 100%;
+}
+.form-control {
+border-radius: 5px 0 0 5px;
+}
+.btn-primary {
+background-color: #278F84;
+border-color: #278F84;
+border-radius: 0 5px 5px 0;
+}
+.btn-primary:hover {
+background-color: #1d6a62;
+border-color: #1d6a62;
+}
+.industry-filter-container {
+display: flex;
+justify-content: center;
+margin-bottom: 20px;
+}
+.industry-buttons {
+display: flex;
+flex-wrap: wrap;
+gap: 10px;
+justify-content: center;
+}
+.industry-btn {
+background-color: #f8f9fa;
+border: 1px solid #278F84;
+color: #278F84;
+padding: 8px 16px;
+border-radius: 5px;
+font-size: 0.9rem;
+cursor: pointer;
+transition: all 0.2s;
+}
+.industry-btn:hover,
+.industry-btn.active {
+background-color: #278F84;
+color: white;
+}
+.row {
+margin-top: 20px;
+}
+.card {
+border: none;
+border-radius: 10px;
+box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+background-color: #fff;
+transition: transform 0.2s;
+}
+.card:hover {
+transform: translateY(-5px);
+}
+.card-img-top {
+width: 120px;
+height: 120px;
+object-fit: cover;
+border-radius: 50%;
+margin-top: 20px;
+border: 4px solid #278F84;
+}
+.card-body {
+padding: 15px;
+text-align: center;
+}
+.card-title {
+font-size: 1.25rem;
+font-weight: bold;
+color: #278F84;
+}
+.card-text {
+font-size: 0.9rem;
+color: #666;
+margin-bottom: 5px;
+}
+.card-text strong {
+color: #278F84;
+}
+.filter-stats {
+font-size: 0.9rem;
+color: #666;
+text-align: center;
+}
 ---extra-addons\membership_profile_search\static\src\js\membership_search.js
+// extra-addons/membership_profile_search/static/src/js/membership_search.js
+
 document.addEventListener("DOMContentLoaded", function () {
 const searchInput = document.getElementById("memberSearchInput");
 const counterElement = document.getElementById("memberCounter");
@@ -216,6 +342,15 @@ searchMembers();
 });
 }
 });
+
+// Hàm chuẩn hóa chuỗi không dấu
+function removeDiacritics(str) {
+return str
+.normalize("NFD")
+.replace(/[\u0300-\u036f]/g, "")
+.replace(/đ/g, "d")
+.replace(/Đ/g, "D");
+}
 
 function resetFilters() {
 const searchInput = document.getElementById("memberSearchInput");
@@ -255,8 +390,7 @@ try {
 const searchInput = document.getElementById("memberSearchInput");
 const industryButtons = document.querySelectorAll(".industry-btn");
 
-const searchTerm = searchInput ? searchInput.value.toLowerCase() : "";
-
+searchInput.value = ""; // Clear search input
 industryButtons.forEach((btn) => {
 btn.classList.remove("active");
 if (btn.getAttribute("data-industry") === industry) {
@@ -264,7 +398,7 @@ btn.classList.add("active");
 }
 });
 
-filterMembers(searchTerm, industry);
+filterMembers("", industry);
 } catch (error) {
 console.error("Error in filterByIndustry:", error);
 }
@@ -273,30 +407,46 @@ console.error("Error in filterByIndustry:", error);
 function filterMembers(searchTerm, industry) {
 const cards = document.querySelectorAll(".card");
 
+// Chuẩn hóa từ khóa tìm kiếm
+const normalizedSearchTerm = removeDiacritics(searchTerm).toLowerCase();
+
 cards.forEach(function (card) {
+// Lấy dữ liệu từ card và chuẩn hóa
 const name = card.querySelector(".card-title strong")
-? card.querySelector(".card-title strong").textContent.toLowerCase()
+? removeDiacritics(
+card.querySelector(".card-title strong").textContent
+).toLowerCase()
 : "";
 const company = card.querySelector(".card-text:nth-child(2)")
-? card.querySelector(".card-text:nth-child(2)").textContent.toLowerCase()
+? removeDiacritics(
+card.querySelector(".card-text:nth-child(2)").textContent
+).toLowerCase()
 : "";
-const cardIndustry = card.querySelector(".card-text:nth-child(3)")
-? card.querySelector(".card-text:nth-child(3)").textContent.toLowerCase()
+const industryElement = card.querySelector(".card-text:nth-child(3)");
+const cardIndustry = industryElement
+? removeDiacritics(
+industryElement.getAttribute("data-industry") || ""
+).toLowerCase()
 : "";
 const address = card.querySelector(".card-text:nth-child(4)")
-? card.querySelector(".card-text:nth-child(4)").textContent.toLowerCase()
+? removeDiacritics(
+card.querySelector(".card-text:nth-child(4)").textContent
+).toLowerCase()
 : "";
 
+// Kiểm tra khớp với từ khóa tìm kiếm
 const matchesSearch =
-!searchTerm ||
-name.includes(searchTerm) ||
-company.includes(searchTerm) ||
-cardIndustry.includes(searchTerm) ||
-address.includes(searchTerm);
+!normalizedSearchTerm ||
+name.includes(normalizedSearchTerm) ||
+company.includes(normalizedSearchTerm) ||
+cardIndustry.includes(normalizedSearchTerm) ||
+address.includes(normalizedSearchTerm);
 
+// Kiểm tra khớp với ngành nghề
 const matchesIndustry =
-!industry || cardIndustry.includes(industry.toLowerCase());
+!industry || cardIndustry === removeDiacritics(industry).toLowerCase();
 
+// Hiển thị hoặc ẩn card
 if (matchesSearch && matchesIndustry) {
 card.parentElement.style.display = "block";
 } else {
@@ -324,111 +474,14 @@ counterElement.textContent = visibleCards;
 <t t-call="website.layout">
 <t t-set="head">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
-<style>
-.container.mt-4 {
-padding-top: 20px;
-}
-h1 {
-text-align: center;
-font-size: 2.5rem;
-color: #278F84;
-margin-bottom: 10px;
-}
-.input-group {
-max-width: 100%;
-margin: 0 auto;
-}
-.form-control {
-border-radius: 5px 0 0 5px;
-}
-.btn-primary {
-background-color: #278F84;
-border-color: #278F84;
-border-radius: 0 5px 5px 0;
-}
-.btn-primary:hover {
-background-color: #1d6a62;
-border-color: #1d6a62;
-}
-.btn-outline-secondary {
-color: #278F84;
-border-color: #278F84;
-}
-.btn-outline-secondary:hover {
-background-color: #278F84;
-color: white;
-}
-.row {
-margin-top: 20px;
-}
-.card {
-border: none;
-border-radius: 10px;
-box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-background-color: #fff;
-transition: transform 0.2s;
-}
-.card:hover {
-transform: translateY(-5px);
-}
-.card-img-top {
-width: 120px;
-height: 120px;
-object-fit: cover;
-border-radius: 50%;
-margin-top: 20px;
-border: 4px solid #278F84;
-}
-.card-body {
-padding: 15px;
-text-align: center;
-}
-.card-title {
-font-size: 1.25rem;
-font-weight: bold;
-color: #278F84;
-}
-#\n.card-text {
-font-size: 0.9rem;
-color: #666;
-margin-bottom: 5px;
-}
-.card-text strong {
-color: #278F84;
-}
-.filter-stats {
-font-size: 0.9rem;
-color: #666;
-}
-.industry-buttons {
-display: flex;
-flex-wrap: wrap;
-gap: 10px;
-}
-.industry-btn {
-background-color: #f8f9fa;
-border: 1px solid #278F84;
-color: #278F84;
-padding: 8px 16px;
-border-radius: 5px;
-font-size: 0.9rem;
-cursor: pointer;
-transition: all 0.2s;
-}
-.industry-btn:hover,
-.industry-btn.active {
-background-color: #278F84;
-color: white;
-}
-</style>
+<link rel="stylesheet" type="text/css" href="/membership_profile_search/static/src/css/membership_search.css"/>
 </t>
 <div class="container mt-4">
-<h1>Danh sách hội viên</h1>
+<h1>Danh sách hội viên 111</h1>
 <p style="margin-bottom: 30px;">
 Hội viên chính thức được công nhận và lưu giữ hồ sơ điện tử tại Hiệp hội Doanh nghiệp Nhỏ và Vừa TP. Vũng Tàu là những cá nhân hoặc tổ chức đã vượt qua quy trình thẩm định chất lượng nghiêm ngặt của Hiệp hội, đồng thời hoàn thành đầy đủ các nghĩa vụ đóng góp tài chính theo quy định. Tư cách này mang lại cho hội viên những quyền lợi đặc biệt, khẳng định uy tín và sự cam kết trong việc đồng hành cùng sự phát triển bền vững của cộng đồng doanh nghiệp Nhỏ và Vừa TP. Vũng Tàu.
 </p>
-<div class="row mb-4">
-<div class="col-md-8">
+<div class="search-container">
 <div class="input-group">
 <input type="text" class="form-control" placeholder="Tìm kiếm theo tên, công ty, ngành nghề hoặc địa chỉ..." id="memberSearchInput"/>
 <div class="input-group-append">
@@ -436,8 +489,7 @@ Hội viên chính thức được công nhận và lưu giữ hồ sơ điện 
 </div>
 </div>
 </div>
-<br></br>
-<div class="col-md-4">
+<div class="industry-filter-container">
 <div class="industry-buttons" id="industryFilter">
 <button class="industry-btn active" data-industry="" onclick="filterByIndustry('')">Tất cả ngành nghề</button>
 <t t-set="industries" t-value="request.env['res.partner.industry'].sudo().search([('id', 'in', members.mapped('industry_id').ids)])"/>
@@ -453,15 +505,9 @@ Hội viên chính thức được công nhận và lưu giữ hồ sơ điện 
 </t>
 </div>
 </div>
-</div>
-<div class="d-flex justify-content-between align-items-center mb-3">
-<div class="filter-stats">
-Hiển thị
+<div class="filter-stats mb-3">
+Kết quả tìm được
 <span id="memberCounter">0</span> hội viên
-</div>
-<div class="filter-reset">
-<button class="btn btn-outline-secondary btn-sm" onclick="resetFilters()">Xóa bộ lọc</button>
-</div>
 </div>
 <div class="row">
 <t t-foreach="members" t-as="member">
@@ -482,7 +528,7 @@ style="width: 120px; height: 120px; object-fit: cover;"/>
 <strong>Công ty: </strong>
 <t t-esc="member.company_name or member.parent_id.name or member.commercial_company_name or '-'"/>
 </p>
-<p class="card-text">
+<p class="card-text" t-att-data-industry="member.industry_id.name or ''">
 <strong>Ngành nghề: </strong>
 <t t-esc="member.industry_id.name or ''"/>
 </p>
