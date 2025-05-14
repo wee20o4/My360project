@@ -188,7 +188,7 @@ return request.render("website_partner.partner_page", values)
 ---extra-addons\membership_profile_search\controllers\__init__.py
 from . import main
 ---extra-addons\membership_profile_search\controllers\__pycache__\main.cpython-39.pyc
-[ERROR READING FILE: 'utf-8' codec can't decode byte 0xa2 in position 8: invalid start byte]
+[ERROR READING FILE: 'utf-8' codec can't decode byte 0xe3 in position 16: invalid continuation byte]
 ---extra-addons\membership_profile_search\controllers\__pycache__\__init__.cpython-39.pyc
 [ERROR READING FILE: 'utf-8' codec can't decode byte 0xbb in position 9: invalid start byte]
 ---extra-addons\membership_profile_search\models\membership_profile_search.py
