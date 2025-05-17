@@ -6,7 +6,6 @@
     'data': [
         'security/ir.model.access.csv',
         'views/membership_profile_search_templates.xml',
-        'views/membership_profile_search_views.xml',
     ],
     'assets': {
         'web.assets_frontend': [
