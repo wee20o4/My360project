@@ -1,4 +1,4 @@
-The entire source code of my project has been compressed into a single .txt file, which I will provide. I need you to thoroughly read and analyze the code to identify any potential issues, errors, or inefficiencies. Please do not ask me to verify or check anything related to the code, as what I’m providing is the complete and final version of my codebase
+The entire source code of my project has been compressed into a single .txt file, which I will provide. I need you to thoroughly read and analyze the code to identify any potential issues, errors, or inefficiencies. Please do not ask me to verify or check anything related to the code, as what I’m providing is the complete and final version of my codebase and speak VietNamese
 
 ---docker-compose.yml
 services:
@@ -374,7 +374,7 @@ const industry = activeButton
 
 filterMembers(searchTerm, industry);
 } catch (error) {
-console.error("Error in searchMembers:", error);
+console.error(error);
 }
 }
 
@@ -393,7 +393,7 @@ btn.classList.add("active");
 
 filterMembers("", industry);
 } catch (error) {
-console.error("Error in filterByIndustry:", error);
+console.error(error);
 }
 }
 

@@ -53,7 +53,7 @@ function searchMembers() {
 
     filterMembers(searchTerm, industry);
   } catch (error) {
-    console.error("Error in searchMembers:", error);
+    console.error(error);
   }
 }
 
@@ -72,7 +72,7 @@ function filterByIndustry(industry) {
 
     filterMembers("", industry);
   } catch (error) {
-    console.error("Error in filterByIndustry:", error);
+    console.error(error);
   }
 }
 

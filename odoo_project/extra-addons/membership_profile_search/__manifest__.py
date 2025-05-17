@@ -2,7 +2,7 @@
     'name': 'Membership Profile Search',
     'version': '1.0',
     'summary': 'Manage members and display public list with search functionality',
-    'depends': ['base', 'website', 'membership', 'website_partner', 'web_editor'],
+    'depends': ['base', 'website', 'membership', 'website_partner', 'web_editor', 'website_sale', 'im_livechat'],
     'data': [
         'security/ir.model.access.csv',
         'views/membership_profile_search_templates.xml',
@@ -12,8 +12,9 @@
             'membership_profile_search/static/img/placeholder.png',
             'membership_profile_search/static/src/js/membership_search.js',
             'membership_profile_search/static/src/css/membership_search.css',
-    ],
-},
+        ],
+    },
     'installable': True,
     'application': True,
+    'license': 'LGPL-3',
 }

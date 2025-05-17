@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates>
+    <t t-name="membership_search_profile.MembershipDirectory">
+        <div class="membership_directory_component">
+            <h2>Danh sách hội viên</h2>
+            <t t-if="state.error">
+                <p style="color: red;">
+                    <t t-esc="state.error"/>
+                </p>
+            </t>
+            <t t-else="">
+                <t t-if="state.members.length === 0">
+                    <p>Không có hội viên nào được tìm thấy.</p>
+                </t>
+                <ul t-else="">
+                    <t t-foreach="state.members" t-as="member">
+                        <li t-esc="member.name"/>
+                    </t>
+                </ul>
+            </t>
+        </div>
+    </t>
+</templates>

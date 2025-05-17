@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <data>
+        <template id="membership_directory_template" name="Membership Directory">
+            <t t-call="website.layout">
+                <div id="wrap">
+                    <div class="container">
+                        <h1>Danh sách hội viên</h1>
+                        <div class="membership_directory" t-attf-class="membership_directory">
+                            <t t-call="membership_search_profile.MembershipDirectory"/>
+                        </div>
+                    </div>
+                </div>
+            </t>
+        </template>
+    </data>
+</odoo>
