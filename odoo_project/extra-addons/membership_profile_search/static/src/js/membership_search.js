@@ -4,15 +4,26 @@ document.addEventListener("DOMContentLoaded", function () {
   const searchInput = document.getElementById("memberSearchInput");
   const counterElement = document.getElementById("memberCounter");
 
+  if (!searchInput) {
+    console.error(
+      "Không tìm thấy phần tử 'memberSearchInput'. Vui lòng kiểm tra template."
+    );
+    return;
+  }
+  if (!counterElement) {
+    console.error(
+      "Không tìm thấy phần tử 'memberCounter'. Vui lòng kiểm tra template."
+    );
+    return;
+  }
+
   updateMemberCounter();
 
-  if (searchInput) {
-    searchInput.addEventListener("keypress", function (e) {
-      if (e.key === "Enter") {
-        searchMembers();
-      }
-    });
-  }
+  searchInput.addEventListener("keypress", function (e) {
+    if (e.key === "Enter") {
+      searchMembers();
+    }
+  });
 });
 
 // Hàm chuẩn hóa chuỗi không dấu

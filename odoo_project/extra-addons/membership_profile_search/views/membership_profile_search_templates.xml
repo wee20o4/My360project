@@ -5,12 +5,18 @@
             <t t-set="head">
                 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
                 <link rel="stylesheet" type="text/css" href="/membership_profile_search/static/src/css/membership_search.css"/>
+                <!-- Loại bỏ thẻ meta không mong muốn -->
+                <t t-foreach="request.httprequest.headers.get('meta', [])" t-as="meta">
+                    <t t-if="meta.get('name') != 'apple-mobile-web-app-capable'">
+                        <meta t-att-name="meta.get('name')" t-att-content="meta.get('content')"/>
+                    </t>
+                </t>
             </t>
             <div class="container mt-4">
                 <h1>Danh sách hội viên 111</h1>
                 <p style="margin-bottom: 30px;">
-Hội viên chính thức được công nhận và lưu giữ hồ sơ điện tử tại Hiệp hội Doanh nghiệp Nhỏ và Vừa TP. Vũng Tàu là những cá nhân hoặc tổ chức đã vượt qua quy trình thẩm định chất lượng nghiêm ngặt của Hiệp hội, đồng thời hoàn thành đầy đủ các nghĩa vụ đóng góp tài chính theo quy định. Tư cách này mang lại cho hội viên những quyền lợi đặc biệt, khẳng định uy tín và sự cam kết trong việc đồng hành cùng sự phát triển bền vững của cộng đồng doanh nghiệp Nhỏ và Vừa TP. Vũng Tàu.
-</p>
+                    Hội viên chính thức được công nhận và lưu giữ hồ sơ điện tử tại Hiệp hội Doanh nghiệp Nhỏ và Vừa TP. Vũng Tàu là những cá nhân hoặc tổ chức đã vượt qua quy trình thẩm định chất lượng nghiêm ngặt của Hiệp hội, đồng thời hoàn thành đầy đủ các nghĩa vụ đóng góp tài chính theo quy định. Tư cách này mang lại cho hội viên những quyền lợi đặc biệt, khẳng định uy tín và sự cam kết trong việc đồng hành cùng sự phát triển bền vững của cộng đồng doanh nghiệp Nhỏ và Vừa TP. Vũng Tàu.
+                </p>
                 <div class="search-container">
                     <div class="input-group">
                         <input type="text" class="form-control" placeholder="Tìm kiếm theo tên, công ty, ngành nghề hoặc địa chỉ..." id="memberSearchInput"/>
@@ -36,7 +42,7 @@ Hội viên chính thức được công nhận và lưu giữ hồ sơ điện 
                     </div>
                 </div>
                 <div class="filter-stats mb-3">
-Kết quả tìm được
+                    Kết quả tìm được
                     <span id="memberCounter">0</span> hội viên
                 </div>
                 <div class="row">
@@ -45,9 +51,9 @@ Kết quả tìm được
                             <div class="card h-100 shadow-sm">
                                 <a t-att-href="'/partners/%s' % slug(member)" class="text-decoration-none text-dark">
                                     <img t-att-src="member.image_1920 and '/web/image/res.partner/%s/image_1920' % member.id or '/membership_profile_search/static/img/placeholder.png'"
-t-att-alt="'Member Avatar: ' + (member.name or '')"
-class="card-img-top rounded-circle mx-auto mt-3"
-style="width: 120px; height: 120px; object-fit: cover;"/>
+                                         t-att-alt="'Member Avatar: ' + (member.name or '')"
+                                         class="card-img-top rounded-circle mx-auto mt-3"
+                                         style="width: 120px; height: 120px; object-fit: cover;"/>
                                     <div class="card-body text-center">
                                         <h5 class="card-title">
                                             <strong>
@@ -73,7 +79,6 @@ style="width: 120px; height: 120px; object-fit: cover;"/>
                     </t>
                 </div>
             </div>
-            <script type="text/javascript" src="/membership_profile_search/static/src/js/membership_search.js"></script>
         </t>
     </template>
 </odoo>

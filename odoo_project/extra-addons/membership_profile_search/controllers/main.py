@@ -5,6 +5,7 @@ from odoo.http import request
 from werkzeug.exceptions import NotFound
 import unicodedata
 import re
+import traceback
 
 def remove_diacritics(text):
     """Chuẩn hóa chuỗi không dấu."""
@@ -33,7 +34,8 @@ class MembershipProfileSearchController(http.Controller):
                           ('industry_id.name', 'ilike', search_term),
                           ('street', 'ilike', search_term)]
 
-            members = request.env['res.partner'].sudo().search(domain)
+            # Giới hạn số lượng kết quả trả về
+            members = request.env['res.partner'].sudo().search(domain, limit=100)
             for member in members:
                 if not member.company_name and member.parent_id:
                     member.company_name = member.parent_id.name or ''
@@ -42,21 +44,25 @@ class MembershipProfileSearchController(http.Controller):
                 'search': search_term
             })
         except Exception as e:
-            # Log the error and return a user-friendly message
+            # Ghi log chi tiết hơn
+            error_trace = traceback.format_exc()
             request.env['ir.logging'].sudo().create({
                 'name': 'MembershipProfileSearch',
                 'type': 'server',
                 'level': 'ERROR',
-                'message': str(e),
+                'message': f"Error: {str(e)}\nTraceback: {error_trace}",
                 'path': '/membership',
                 'func': 'list_members',
                 'line': 1,
             })
-            return request.render('website.page_404', {'error': 'An error occurred while loading the member list.'})
+            return request.render('website.page_404', {'error': 'Đã xảy ra lỗi khi tải danh sách hội viên.'})
 
     @http.route('/partners/<model("res.partner"):partner>', type='http', auth='public', website=True)
     def member_detail(self, partner, **kwargs):
+        # Kiểm tra quyền truy cập
         is_authorized = request.env.user.has_group('base.group_user')
+        if not partner.exists():  # Kiểm tra partner có tồn tại không
+            raise NotFound()
         if not is_authorized and (not partner.website_published or partner.membership_state == 'none'):
             raise NotFound()
         values = {

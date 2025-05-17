@@ -29,12 +29,21 @@ platform: linux/amd64
 volumes:
 odoo-data:
 odoo-db-data:
+---Dockerfile
+FROM odoo:16.0
+USER root
+COPY ./addons /mnt/extra-addons
+COPY ./odoo.conf /etc/odoo/odoo.conf
+USER odoo
 ---odoo.conf
 [options]
 addons_path = /mnt/extra-addons,/usr/lib/python3/dist-packages/odoo/addons
-data_dir = /var/lib/odoo
-admin_passwd = $pbkdf2-sha512$600000$7l3r3RtjzPl/T.ndW.s9pw$qRk38ix6.beNhYNu7/cDIfvYpQY7JxkwWabb9x9NmePICsxXLqaCoj/f6SwTg8arZFJtLR2Uke8Si72GbP0BZg
-dev_mode = False
+db_host = db
+db_port = 5432
+db_user = odoo
+db_password = odoo
+db_name = odoo
+admin_passwd = 12345
 ---.idea\projectSettingsUpdater.xml
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
@@ -104,7 +113,7 @@ from . import models
 'name': 'Membership Profile Search',
 'version': '1.0',
 'summary': 'Manage members and display public list with search functionality',
-'depends': ['base', 'website', 'membership', 'website_partner', 'web_editor'],
+'depends': ['base', 'website', 'membership', 'website_partner', 'web_editor', 'website_sale', 'im_livechat'],
 'data': [
 'security/ir.model.access.csv',
 'views/membership_profile_search_templates.xml',
@@ -118,6 +127,7 @@ from . import models
 },
 'installable': True,
 'application': True,
+'license': 'LGPL-3',
 }
 ---extra-addons\membership_profile_search\controllers\main.py
 # extra-addons/membership_profile_search/controllers/main.py
