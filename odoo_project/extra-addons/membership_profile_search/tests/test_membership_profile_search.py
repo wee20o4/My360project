@@ -1,8 +1,7 @@
-from odoo.tests import tagged # type: ignore
-from odoo.tests.common import HttpCase # type: ignore
-from odoo.exceptions import ValidationError # type: ignore
-import unicodedata
-import re
+from odoo.tests import tagged  # type: ignore
+from odoo.tests.common import HttpCase  # type: ignore
+from odoo.exceptions import ValidationError  # type: ignore
+from .. import utils  # Import utils
 
 @tagged('membership_profile_search')
 class TestMembershipProfileSearch(HttpCase):
@@ -45,12 +44,6 @@ class TestMembershipProfileSearch(HttpCase):
             'membership_state': 'none',
         })
 
-    def remove_diacritics(self, text):
-        text = unicodedata.normalize('NFD', text)
-        text = re.sub(r'[\u0300-\u036f]', '', text)
-        text = text.replace('đ', 'd').replace('Đ', 'D')
-        return text
-
     def test_remove_diacritics(self):
         test_cases = [
             ('Công nghệ Thông tin', 'Cong nghe Thong tin'),
@@ -58,7 +51,7 @@ class TestMembershipProfileSearch(HttpCase):
             ('Việt Nam', 'Viet Nam'),
         ]
         for input_text, expected in test_cases:
-            result = self.remove_diacritics(input_text)
+            result = utils.remove_diacritics(input_text)
             self.assertEqual(result, expected, f"Chuẩn hóa không dấu thất bại: {input_text}")
 
     def test_search_members_by_name(self):

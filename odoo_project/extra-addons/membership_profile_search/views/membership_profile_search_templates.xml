@@ -3,25 +3,35 @@
     <template id="membership_profile_search_list_template" name="Membership Profile Search List">
         <t t-call="website.layout">
             <t t-set="head">
-                <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
-                <link rel="stylesheet" type="text/css" href="/membership_profile_search/static/src/css/member_list.css"/>
-                <link rel="stylesheet" type="text/css" href="/membership_profile_search/static/src/css/search_bar.css"/>
-                <link rel="stylesheet" type="text/css" href="/membership_profile_search/static/src/css/industry_filter.css"/>
-                <link rel="stylesheet" type="text/css" href="/membership_profile_search/static/src/css/member_card.css"/>
+            <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+            <link rel="stylesheet" type="text/css" href="/membership_profile_search/static/src/css/member_list.css"/>
+            <link rel="stylesheet" type="text/css" href="/membership_profile_search/static/src/css/search_bar.css"/>
+            <link rel="stylesheet" type="text/css" href="/membership_profile_search/static/src/css/industry_filter.css"/>
+            <link rel="stylesheet" type="text/css" href="/membership_profile_search/static/src/css/member_card.css"/>
             </t>
             <script type="text/javascript">
-            window.members = <t t-if="members">[<t t-foreach="members" t-as="member"><t t-if="member">
-            <t t-raw="member.jsonify(['id', 'name', 'company_name', 
-                'industry_id.name' if member.industry_id else None, 
-                'street', 
-                'city', 
-                'state_id.name' if member.state_id else None, 
-                'country_id.name' if member.country_id else None, 
-                'image_1920'])"/><t t-if="not loop.last">, </t></t></t>]</t> || [];
+                window.members = <t t-if="members">[<t t-foreach="members" t-as="member"><t t-if="member">
+                {
+                    "id": <t t-esc="member.id"/>,
+                    "name": "<t t-esc="member.name or ''" t-options='{"widget": "char"}'/>",
+                    "company_name": "<t t-esc="member.company_name or ''" t-options='{"widget": "char"}'/>",
+                    "industry_id": {
+                        "name": "<t t-esc="member.industry_id.name or ''" t-options='{"widget": "char"}'/>"
+                    },
+                    "street": "<t t-esc="member.street or ''" t-options='{"widget": "char"}'/>",
+                    "city": "<t t-esc="member.city or ''" t-options='{"widget": "char"}'/>",
+                    "state_id": {
+                        "name": "<t t-esc="member.state_id.name or ''" t-options='{"widget": "char"}'/>"
+                    },
+                    "country_id": {
+                        "name": "<t t-esc="member.country_id.name or ''" t-options='{"widget": "char"}'/>"
+                    },
+                    "image_1920": "<t t-esc="member.image_1920 or ''" t-options='{"widget": "char"}'/>"
+                }<t t-if="not member_last">,</t></t></t>]</t> || [];
             </script>
             <t t-call="membership_profile_search.MemberList"/>
         </t>
-    </template>
+        </template>
 
     <template id="MemberList" name="Member List Component">
         <div class="member-list-container">
@@ -32,15 +42,15 @@
             <SearchBar onSearch="updateSearch"/>
             <IndustryFilter industries="members.mapped('industry_id')" onIndustryChange="updateIndustry"/>
             <div class="filter-stats mb-3">
-                Kết quả tìm được <span t-esc="filteredMembers.length"/> hội viên
+                Kết quả tìm được <span t-esc="len(members)"/> hội viên
             </div>
-            <t t-if="not filteredMembers">
+            <t t-if="not members">
                 <div class="alert alert-info text-center">
                     Không tìm thấy hội viên nào phù hợp với tiêu chí tìm kiếm.
                 </div>
             </t>
             <div class="row">
-                <t t-foreach="filteredMembers" t-as="member">
+                <t t-foreach="members" t-as="member">
                     <MemberCard member="member"/>
                 </t>
             </div>
@@ -76,22 +86,26 @@
     </template>
 
     <template id="MemberCard" name="Member Card Component">
-        <div class="col-md-4 col-sm-6 mb-4">
-            <div class="member-card h-100 shadow-sm">
-                <a t-att-href="'/partners/%s' % slug(member)" class="text-decoration-none text-dark">
-                    <img t-att-src="imageSrc" t-att-alt="'Member Avatar: ' + (member.name or '')"
-                         class="card-img-top rounded-circle mx-auto mt-3" style="width: 120px; height: 120px; object-fit: cover;"
-                         loading="lazy"/>
-                    <div class="card-body text-center">
-                        <h5 class="card-title"><strong><t t-esc="member.name or ''"/></strong></h5>
-                        <p class="card-text"><strong>Công ty: </strong><t t-esc="member.company_name or '-'"/></p>
-                        <p class="card-text" t-att-data-industry="member.industry_id.name or ''">
-                            <strong>Ngành nghề: </strong><t t-esc="member.industry_id.name or ''"/>
-                        </p>
-                        <p class="card-text"><strong>Địa chỉ: </strong><t t-esc="address"/></p>
-                    </div>
-                </a>
+    <div class="col-md-4 col-sm-6 mb-4">
+        <div class="member-card h-100 shadow-sm">
+        <a t-att-href="'/partners/%s' % slug(member)" class="text-decoration-none text-dark">
+            <img t-att-src="imageSrc" t-att-alt="'Member Avatar: ' + (member.name or '')"
+                class="card-img-top rounded-circle mx-auto mt-3" style="width: 120px; height: 120px; object-fit: cover;"
+                loading="lazy"/>
+            <div class="card-body text-center">
+            <h5 class="card-title"><strong><t t-esc="member.name or ''"/></strong></h5>
+            <p class="card-text"><strong>Công ty: </strong><t t-esc="member.company_name or '-'"/></p>
+            <p class="card-text" t-att-data-industry="member.industry_id.name or ''">
+                <strong>Ngành nghề: </strong><t t-esc="member.industry_id.name or ''"/>
+            </p>
+            <p class="card-text">
+                <strong>Địa chỉ: </strong>
+                <t t-esc="', '.join(filter(None, [member.street, member.city, member.state_id.name if member.state_id else None, member.country_id.name if member.country_id else None])) or '-'"/>
+            </p>
             </div>
+        </a>
         </div>
+    </div>
     </template>
+
 </odoo>

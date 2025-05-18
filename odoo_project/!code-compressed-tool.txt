@@ -16,6 +16,7 @@ environment:
 - HOST=db
 - USER=odoo
 - PASSWORD=odoo
+- LOG_LEVEL=ERROR
 restart: unless-stopped
 db:
 image: postgres:13
@@ -45,6 +46,7 @@ db_password = odoo
 db_name = odoo
 admin_passwd = 12345
 xmlrpc_port = 8069
+log_level = error
 ---.idea\projectSettingsUpdater.xml
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
@@ -106,9 +108,26 @@ xmlrpc_port = 8069
 <option name="CLEAR_INITIAL_COMMIT_MESSAGE" value="true" />
 </component>
 </project>
+---extra-addons\membership_profile_search\utils.py
+import unicodedata
+import re
+
+def remove_diacritics(text):
+"""
+Hàm chuẩn hóa chuỗi văn bản, loại bỏ dấu tiếng Việt để hỗ trợ tìm kiếm không dấu.
+Args:
+text (str): Chuỗi văn bản đầu vào cần chuẩn hóa.
+Returns:
+str: Chuỗi văn bản đã được loại bỏ dấu và thay thế các ký tự đặc biệt như 'đ', 'Đ'.
+"""
+text = unicodedata.normalize('NFD', text)
+text = re.sub(r'[\u0300-\u036f]', '', text)
+text = text.replace('đ', 'd').replace('Đ', 'D')
+return text
 ---extra-addons\membership_profile_search\__init__.py
 from . import controllers
 from . import models
+from . import utils
 ---extra-addons\membership_profile_search\__manifest__.py
 {
 'name': 'Membership Profile Search',
@@ -152,25 +171,11 @@ Mô-đun Membership Profile Search cung cấp chức năng quản lý và hiển
 ---extra-addons\membership_profile_search\controllers\main.py
 # extra-addons/membership_profile_search/controllers/main.py
 
-from odoo import http # type: ignore
-from odoo.http import request # type: ignore
-from werkzeug.exceptions import NotFound # type: ignore
-import unicodedata
-import re
+from odoo import http  # type: ignore
+from odoo.http import request  # type: ignore
+from werkzeug.exceptions import NotFound  # type: ignore
+from .. import utils  # Import utils
 import traceback
-
-def remove_diacritics(text):
-"""
-Hàm chuẩn hóa chuỗi văn bản, loại bỏ dấu tiếng Việt để hỗ trợ tìm kiếm không dấu.
-Args:
-text (str): Chuỗi văn bản đầu vào cần chuẩn hóa.
-Returns:
-str: Chuỗi văn bản đã được loại bỏ dấu và thay thế các ký tự đặc biệt như 'đ', 'Đ'.
-"""
-text = unicodedata.normalize('NFD', text)
-text = re.sub(r'[\u0300-\u036f]', '', text)
-text = text.replace('đ', 'd').replace('Đ', 'D')
-return text
 
 class MembershipProfileSearchController(http.Controller):
 @http.route('/membership', type='http', auth='public', website=True)
@@ -183,7 +188,7 @@ domain = [
 ]
 
 if search_term:
-normalized_search = remove_diacritics(search_term).lower()
+normalized_search = utils.remove_diacritics(search_term).lower()
 domain += ['|', '|', '|',
 ('name', 'ilike', search_term),
 ('company_name', 'ilike', search_term),
@@ -194,6 +199,8 @@ members = request.env['res.partner'].search(domain)
 for member in members:
 if not member.company_name and member.parent_id:
 member.company_name = member.parent_id.name or ''
+elif not member.company_name:
+member.company_name = member.name if member.is_company else ''
 
 return request.render('membership_profile_search.membership_profile_search_list_template', {
 'members': members,
@@ -284,11 +291,6 @@ return this.props.member.image_1920
 ? `/web/image/res.partner/${this.props.member.id}/image_1920`
 : "/membership_profile_search/static/img/placeholder.png";
 }
-get imageSrc() {
-return this.props.member.image_1920
-? `/web/image/res.partner/${this.props.member.id}/image_1920`
-: "/membership_profile_search/static/img/placeholder.png";
-}
 }
 ---extra-addons\membership_profile_search\static\src\components\MemberList.js
 /** @odoo-module **/
@@ -306,7 +308,7 @@ setup() {
 this.state = useState({
 searchTerm: "",
 industry: "",
-members: this.props.members || [],
+members: Array.isArray(this.props.members) ? this.props.members : [],
 });
 }
 
@@ -319,25 +321,41 @@ this.state.industry = industry;
 }
 
 get filteredMembers() {
-const normalizedSearch = this.removeDiacritics(this.state.searchTerm).toLowerCase();
-const normalizedIndustry = this.removeDiacritics(this.state.industry).toLowerCase();
-
-return this.state.members.filter(member => {
-const name = this.removeDiacritics(member.name || "").toLowerCase();
-const company = this.removeDiacritics(member.company_name || "").toLowerCase();
-const industry = this.removeDiacritics(member.industry_id?.name || "").toLowerCase();
-const address = this.removeDiacritics(
-[member.street, member.city, member.state_id?.name, member.country_id?.name]
-.filter(Boolean).join(", ") || ""
+const normalizedSearch = this.removeDiacritics(
+this.state.searchTerm
+).toLowerCase();
+const normalizedIndustry = this.removeDiacritics(
+this.state.industry
 ).toLowerCase();
 
-const matchesSearch = !normalizedSearch ||
+return this.state.members.filter((member) => {
+const name = this.removeDiacritics(member.name || "").toLowerCase();
+const company = this.removeDiacritics(
+member.company_name || ""
+).toLowerCase();
+const industry = this.removeDiacritics(
+member.industry_id?.name || ""
+).toLowerCase();
+const address = this.removeDiacritics(
+[
+member.street,
+member.city,
+member.state_id?.name,
+member.country_id?.name,
+]
+.filter(Boolean)
+.join(", ") || ""
+).toLowerCase();
+
+const matchesSearch =
+!normalizedSearch ||
 name.includes(normalizedSearch) ||
 company.includes(normalizedSearch) ||
 industry.includes(normalizedSearch) ||
 address.includes(normalizedSearch);
 
-const matchesIndustry = !normalizedIndustry || industry === normalizedIndustry;
+const matchesIndustry =
+!normalizedIndustry || industry === normalizedIndustry;
 
 return matchesSearch && matchesIndustry;
 });
@@ -488,11 +506,10 @@ mount(MemberList, root, { props: { members: window.members || [] } });
 }
 });
 ---extra-addons\membership_profile_search\tests\test_membership_profile_search.py
-from odoo.tests import tagged # type: ignore
-from odoo.tests.common import HttpCase # type: ignore
-from odoo.exceptions import ValidationError # type: ignore
-import unicodedata
-import re
+from odoo.tests import tagged  # type: ignore
+from odoo.tests.common import HttpCase  # type: ignore
+from odoo.exceptions import ValidationError  # type: ignore
+from .. import utils  # Import utils
 
 @tagged('membership_profile_search')
 class TestMembershipProfileSearch(HttpCase):
@@ -535,12 +552,6 @@ self.partner3 = self.env['res.partner'].create({
 'membership_state': 'none',
 })
 
-def remove_diacritics(self, text):
-text = unicodedata.normalize('NFD', text)
-text = re.sub(r'[\u0300-\u036f]', '', text)
-text = text.replace('đ', 'd').replace('Đ', 'D')
-return text
-
 def test_remove_diacritics(self):
 test_cases = [
 ('Công nghệ Thông tin', 'Cong nghe Thong tin'),
@@ -548,7 +559,7 @@ test_cases = [
 ('Việt Nam', 'Viet Nam'),
 ]
 for input_text, expected in test_cases:
-result = self.remove_diacritics(input_text)
+result = utils.remove_diacritics(input_text)
 self.assertEqual(result, expected, f"Chuẩn hóa không dấu thất bại: {input_text}")
 
 def test_search_members_by_name(self):
@@ -637,7 +648,24 @@ self.assertTrue(empty_partner.name in response.text, "Không tìm thấy hội v
 <link rel="stylesheet" type="text/css" href="/membership_profile_search/static/src/css/member_card.css"/>
 </t>
 <script type="text/javascript">
-window.members = <t t-if="members">[<t t-foreach="members" t-as="member"><t t-if="member"><t t-raw="member.jsonify(['id', 'name', 'company_name', 'industry_id.name', 'street', 'city', 'state_id.name', 'country_id.name', 'image_1920'])"/><t t-if="not loop.last">, </t></t></t>]</t> || [];
+window.members = <t t-if="members">[<t t-foreach="members" t-as="member"><t t-if="member">
+{
+"id": <t t-esc="member.id"/>,
+"name": "<t t-esc="member.name or ''" t-options='{"widget": "char"}'/>",
+"company_name": "<t t-esc="member.company_name or ''" t-options='{"widget": "char"}'/>",
+"industry_id": {
+"name": "<t t-esc="member.industry_id.name or ''" t-options='{"widget": "char"}'/>"
+},
+"street": "<t t-esc="member.street or ''" t-options='{"widget": "char"}'/>",
+"city": "<t t-esc="member.city or ''" t-options='{"widget": "char"}'/>",
+"state_id": {
+"name": "<t t-esc="member.state_id.name or ''" t-options='{"widget": "char"}'/>"
+},
+"country_id": {
+"name": "<t t-esc="member.country_id.name or ''" t-options='{"widget": "char"}'/>"
+},
+"image_1920": "<t t-esc="member.image_1920 or ''" t-options='{"widget": "char"}'/>"
+}<t t-if="not member_last">,</t></t></t>]</t> || [];
 </script>
 <t t-call="membership_profile_search.MemberList"/>
 </t>
@@ -708,10 +736,14 @@ loading="lazy"/>
 <p class="card-text" t-att-data-industry="member.industry_id.name or ''">
 <strong>Ngành nghề: </strong><t t-esc="member.industry_id.name or ''"/>
 </p>
-<p class="card-text"><strong>Địa chỉ: </strong><t t-esc="address"/></p>
+<p class="card-text">
+<strong>Địa chỉ: </strong>
+<t t-esc="', '.join(filter(None, [member.street, member.city, member.state_id.name if member.state_id else None, member.country_id.name if member.country_id else None])) or '-'"/>
+</p>
 </div>
 </a>
 </div>
 </div>
 </template>
+
 </odoo>
