@@ -1,4 +1,4 @@
-from odoo import fields, models, api
+from odoo import fields, models, api # type: ignore
 
 class MembershipProfileSearch(models.Model):
     """

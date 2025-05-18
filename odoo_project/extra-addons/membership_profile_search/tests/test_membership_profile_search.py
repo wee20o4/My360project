@@ -1,6 +1,6 @@
-from odoo.tests import tagged
-from odoo.tests.common import HttpCase
-from odoo.exceptions import ValidationError
+from odoo.tests import tagged # type: ignore
+from odoo.tests.common import HttpCase # type: ignore
+from odoo.exceptions import ValidationError # type: ignore
 import unicodedata
 import re
 

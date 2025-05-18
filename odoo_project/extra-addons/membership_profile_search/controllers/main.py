@@ -1,9 +1,9 @@
 # extra-addons/membership_profile_search/controllers/main.py
 
 from xml.dom import ValidationErr
-from odoo import http
-from odoo.http import request
-from werkzeug.exceptions import NotFound
+from odoo import http # type: ignore
+from odoo.http import request # type: ignore
+from werkzeug.exceptions import NotFound # type: ignore
 import unicodedata
 import re
 import traceback
