@@ -1,6 +1,6 @@
-// extra-addons/membership_profile_search/static/src/js/membership_search.js
-
 document.addEventListener("DOMContentLoaded", function () {
+  console.log("DOM loaded, initializing membership search script");
+
   const searchInput = document.getElementById("memberSearchInput");
   const counterElement = document.getElementById("memberCounter");
 
@@ -17,12 +17,16 @@ document.addEventListener("DOMContentLoaded", function () {
     return;
   }
 
+  console.log(
+    "Found searchInput and counterElement, setting up event listeners"
+  );
+
   updateMemberCounter();
 
-  searchInput.addEventListener("keypress", function (e) {
-    if (e.key === "Enter") {
-      searchMembers();
-    }
+  // Thêm sự kiện input để tìm kiếm tức thời
+  searchInput.addEventListener("input", function (e) {
+    console.log("Input event triggered, search term:", e.target.value);
+    searchMembers();
   });
 });
 
@@ -62,9 +66,10 @@ function searchMembers() {
       ? activeButton.getAttribute("data-industry")
       : "";
 
+    console.log("Searching with term:", searchTerm, "and industry:", industry);
     filterMembers(searchTerm, industry);
   } catch (error) {
-    console.error(error);
+    console.error("Error in searchMembers:", error);
   }
 }
 
@@ -83,7 +88,7 @@ function filterByIndustry(industry) {
 
     filterMembers("", industry);
   } catch (error) {
-    console.error(error);
+    console.error("Error in filterByIndustry:", error);
   }
 }
 
