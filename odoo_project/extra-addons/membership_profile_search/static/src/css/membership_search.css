@@ -97,18 +97,4 @@ h1 {
     color: #666;
     text-align: center;
 }
-@media (max-width: 576px) {
-    .input-group {
-        flex-direction: column;
-    }
-    .form-control,
-    .btn-primary {
-        border-radius: 5px;
-        width: 100%;
-        margin-bottom: 10px;
-    }
-    .card-img-top {
-        width: 80px;
-        height: 80px;
-    }
-}
+
