@@ -4,85 +4,94 @@
         <t t-call="website.layout">
             <t t-set="head">
                 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
-                <link rel="stylesheet" type="text/css" href="/membership_profile_search/static/src/css/membership_search.css"/>
-                <t t-foreach="request.httprequest.headers.get('meta', [])" t-as="meta">
-                    <t t-if="meta.get('name') != 'apple-mobile-web-app-capable'">
-                        <meta t-att-name="meta.get('name')" t-att-content="meta.get('content')"/>
-                    </t>
-                </t>
+                <link rel="stylesheet" type="text/css" href="/membership_profile_search/static/src/css/member_list.css"/>
+                <link rel="stylesheet" type="text/css" href="/membership_profile_search/static/src/css/search_bar.css"/>
+                <link rel="stylesheet" type="text/css" href="/membership_profile_search/static/src/css/industry_filter.css"/>
+                <link rel="stylesheet" type="text/css" href="/membership_profile_search/static/src/css/member_card.css"/>
             </t>
-            <div class="container mt-4">
-                <h1>Danh sách hội viên</h1>
-                <p style="margin-bottom: 30px;">
-                    Hội viên chính thức được công nhận và lưu giữ hồ sơ điện tử tại Hiệp hội Doanh nghiệp Nhỏ và Vừa TP. Vũng Tàu là những cá nhân hoặc tổ chức đã vượt qua quy trình thẩm định chất lượng nghiêm ngặt của Hiệp hội, đồng thời hoàn thành đầy đủ các nghĩa vụ đóng góp tài chính theo quy định. Tư cách này mang lại cho hội viên những quyền lợi đặc biệt, khẳng định uy tín và sự cam kết trong việc đồng hành cùng sự phát triển bền vững của cộng đồng doanh nghiệp Nhỏ và Vừa TP. Vũng Tàu.
-                    </p>
-                <div class="search-container">
-                    <div class="input-group">
-                        <input type="text" class="form-control" placeholder="Tìm kiếm theo tên, công ty, ngành nghề hoặc địa chỉ..." id="memberSearchInput"/>
-                        <div class="input-group-append">
-                            <button class="btn btn-primary" type="button" onclick="searchMembers()">Tìm kiếm</button>
-                        </div>
-                    </div>
+            <script type="text/javascript">
+            window.members = <t t-if="members">[<t t-foreach="members" t-as="member"><t t-if="member">
+            <t t-raw="member.jsonify(['id', 'name', 'company_name', 
+                'industry_id.name' if member.industry_id else None, 
+                'street', 
+                'city', 
+                'state_id.name' if member.state_id else None, 
+                'country_id.name' if member.country_id else None, 
+                'image_1920'])"/><t t-if="not loop.last">, </t></t></t>]</t> || [];
+            </script>
+            <t t-call="membership_profile_search.MemberList"/>
+        </t>
+    </template>
+
+    <template id="MemberList" name="Member List Component">
+        <div class="member-list-container">
+            <h1>Danh sách hội viên</h1>
+            <p style="margin-bottom: 30px;">
+                Hội viên chính thức được công nhận và lưu giữ hồ sơ điện tử tại Hiệp hội Doanh nghiệp Nhỏ và Vừa TP. Vũng Tàu...
+            </p>
+            <SearchBar onSearch="updateSearch"/>
+            <IndustryFilter industries="members.mapped('industry_id')" onIndustryChange="updateIndustry"/>
+            <div class="filter-stats mb-3">
+                Kết quả tìm được <span t-esc="filteredMembers.length"/> hội viên
+            </div>
+            <t t-if="not filteredMembers">
+                <div class="alert alert-info text-center">
+                    Không tìm thấy hội viên nào phù hợp với tiêu chí tìm kiếm.
                 </div>
-                <div class="industry-filter-container">
-                    <div class="industry-buttons" id="industryFilter">
-                        <button class="industry-btn active" data-industry="" onclick="filterByIndustry('')">Tất cả ngành nghề</button>
-                        <t t-set="industries" t-value="request.env['res.partner.industry'].sudo().search([('id', 'in', members.mapped('industry_id').ids)])"/>
-                        <t t-if="industries">
-                            <t t-foreach="industries" t-as="industry">
-                                <button class="industry-btn" t-att-data-industry="industry.name" t-att-onclick="'filterByIndustry(&quot;' + industry.name + '&quot;)'">
-                                    <t t-esc="industry.name"/>
-                                </button>
-                            </t>
-                        </t>
-                        <t t-else="">
-                            <span>Không có ngành nghề nào</span>
-                        </t>
-                    </div>
-                </div>
-                <div class="filter-stats mb-3">
-                    Kết quả tìm được
-                    <span id="memberCounter">0</span> hội viên
-                </div>
-                <t t-if="not members">
-                    <div class="alert alert-info text-center">
-                        Không tìm thấy hội viên nào phù hợp với tiêu chí tìm kiếm.
-                    </div>
+            </t>
+            <div class="row">
+                <t t-foreach="filteredMembers" t-as="member">
+                    <MemberCard member="member"/>
                 </t>
-                <div class="row">
-                    <t t-foreach="members" t-as="member">
-                        <div class="col-md-4 col-sm-6 mb-4 card-container">
-                            <div class="card h-100 shadow-sm">
-                                <a t-att-href="'/partners/%s' % slug(member)" class="text-decoration-none text-dark">
-                                    <img t-att-src="member.image_1920 and '/web/image/res.partner/%s/image_1920' % member.id or '/membership_profile_search/static/img/placeholder.png'"
-                                        t-att-alt="'Member Avatar: ' + (member.name or '')"
-                                        class="card-img-top rounded-circle mx-auto mt-3"
-                                        style="width: 120px; height: 120px; object-fit: cover;"/>
-                                    <div class="card-body text-center">
-                                        <h5 class="card-title">
-                                            <strong>
-                                                <t t-esc="member.name or ''"/>
-                                            </strong>
-                                        </h5>
-                                        <p class="card-text">
-                                            <strong>Công ty: </strong>
-                                            <t t-esc="member.company_name or member.parent_id.name or member.commercial_company_name or '-'"/>
-                                        </p>
-                                        <p class="card-text" t-att-data-industry="member.industry_id.name or ''">
-                                            <strong>Ngành nghề: </strong>
-                                            <t t-esc="member.industry_id.name or ''"/>
-                                        </p>
-                                        <p class="card-text">
-                                            <strong>Địa chỉ: </strong>
-                                            <t t-esc="', '.join(filter(None, [member.street or '', member.city or '', member.state_id.name or '', member.country_id.name or ''])) or ''"/>
-                                        </p>
-                                    </div>
-                                </a>
-                            </div>
-                        </div>
-                    </t>
+            </div>
+        </div>
+    </template>
+
+    <template id="SearchBar" name="Search Bar Component">
+        <div class="search-bar-container">
+            <div class="input-group">
+                <input type="text" class="form-control" placeholder="Tìm kiếm theo tên, công ty, ngành nghề hoặc địa chỉ..." 
+                       t-model="state.value" t-on-input="onInput" aria-label="Tìm kiếm hội viên"/>
+                <div class="input-group-append">
+                    <button class="btn btn-primary" type="button" t-on-click="onInput" aria-label="Tìm kiếm">Tìm kiếm</button>
                 </div>
             </div>
-        </t>
+        </div>
+    </template>
+
+    <template id="IndustryFilter" name="Industry Filter Component">
+        <div class="industry-filter-container">
+            <div class="industry-buttons">
+                <button class="industry-btn" t-att-class="state.activeIndustry == '' ? 'active' : ''" 
+                        t-on-click="() => setIndustry('')" aria-label="Tất cả ngành nghề">Tất cả ngành nghề</button>
+                <t t-foreach="industries" t-as="industry">
+                    <button class="industry-btn" t-att-class="state.activeIndustry == industry.name ? 'active' : ''"
+                            t-att-data-industry="industry.name" t-on-click="() => setIndustry(industry.name)"
+                            t-att-aria-label="'Lọc theo ngành ' + industry.name">
+                        <t t-esc="industry.name"/>
+                    </button>
+                </t>
+            </div>
+        </div>
+    </template>
+
+    <template id="MemberCard" name="Member Card Component">
+        <div class="col-md-4 col-sm-6 mb-4">
+            <div class="member-card h-100 shadow-sm">
+                <a t-att-href="'/partners/%s' % slug(member)" class="text-decoration-none text-dark">
+                    <img t-att-src="imageSrc" t-att-alt="'Member Avatar: ' + (member.name or '')"
+                         class="card-img-top rounded-circle mx-auto mt-3" style="width: 120px; height: 120px; object-fit: cover;"
+                         loading="lazy"/>
+                    <div class="card-body text-center">
+                        <h5 class="card-title"><strong><t t-esc="member.name or ''"/></strong></h5>
+                        <p class="card-text"><strong>Công ty: </strong><t t-esc="member.company_name or '-'"/></p>
+                        <p class="card-text" t-att-data-industry="member.industry_id.name or ''">
+                            <strong>Ngành nghề: </strong><t t-esc="member.industry_id.name or ''"/>
+                        </p>
+                        <p class="card-text"><strong>Địa chỉ: </strong><t t-esc="address"/></p>
+                    </div>
+                </a>
+            </div>
+        </div>
     </template>
 </odoo>

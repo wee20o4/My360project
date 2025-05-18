@@ -1,0 +1,26 @@
+.industry-filter-container {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 20px;
+}
+.industry-filter-container .industry-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+}
+.industry-filter-container .industry-btn {
+    background-color: #f8f9fa;
+    border: 1px solid #278F84;
+    color: #278F84;
+    padding: 8px 16px;
+    border-radius: 5px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.industry-filter-container .industry-btn:hover,
+.industry-filter-container .industry-btn.active {
+    background-color: #278F84;
+    color: white;
+}

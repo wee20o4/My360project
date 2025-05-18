@@ -1,10 +1,6 @@
 from odoo import fields, models, api # type: ignore
 
 class MembershipProfileSearch(models.Model):
-    """
-    Class kế thừa model 'res.partner' để mở rộng các trường và logic liên quan đến tìm kiếm hội viên.
-    Thêm các trường như ảnh đại diện, tên công ty, ngành nghề, địa chỉ để hỗ trợ hiển thị và tìm kiếm.
-    """
     _inherit = 'res.partner'
     _description = 'Membership Profile Search'
 
@@ -18,12 +14,6 @@ class MembershipProfileSearch(models.Model):
 
     @api.depends('parent_id', 'parent_id.name', 'name', 'is_company')
     def _compute_company_name(self):
-        """
-        Hàm tính toán giá trị cho trường 'company_name' dựa trên thông tin công ty mẹ hoặc tên hội viên.
-        
-        Args:
-            self (MembershipProfileSearch): Tập hợp các bản ghi res.partner.
-        """
         for partner in self:
             if partner.parent_id and partner.parent_id.name:
                 partner.company_name = partner.parent_id.name

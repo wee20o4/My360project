@@ -1,0 +1,21 @@
+.search-bar-container {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 20px;
+}
+.search-bar-container .input-group {
+    max-width: 600px;
+    width: 100%;
+}
+.search-bar-container .form-control {
+    border-radius: 5px 0 0 5px;
+}
+.search-bar-container .btn-primary {
+    background-color: #278F84;
+    border-color: #278F84;
+    border-radius: 0 5px 5px 0;
+}
+.search-bar-container .btn-primary:hover {
+    background-color: #1d6a62;
+    border-color: #1d6a62;
+}
