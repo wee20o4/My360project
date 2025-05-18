@@ -1,5 +1,6 @@
 # extra-addons/membership_profile_search/controllers/main.py
 
+from xml.dom import ValidationErr
 from odoo import http
 from odoo.http import request
 from werkzeug.exceptions import NotFound
@@ -72,7 +73,7 @@ class MembershipProfileSearchController(http.Controller):
             # Ghi log lỗi hệ thống nếu có ngoại lệ xảy ra
             error_trace = traceback.format_exc()
             message = "Lỗi hệ thống. Vui lòng thử lại sau."
-            if isinstance(e, ValidationError):
+            if isinstance(e, ValidationErr):
                 message = str(e)
             request.env['ir.logging'].sudo().create({
                 'name': 'MembershipProfileSearch',
