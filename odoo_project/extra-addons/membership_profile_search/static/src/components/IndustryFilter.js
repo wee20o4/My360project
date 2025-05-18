@@ -7,6 +7,7 @@ export class IndustryFilter extends Component {
 
     setup() {
         this.state = useState({ activeIndustry: "" });
+        this.industries = Array.isArray(this.props.industries) ? this.props.industries : [];
     }
 
     setIndustry(industry) {

@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE templates [
+<!ENTITY laquo "entity-value">
+<!ENTITY raquo "entity-value">
+]>
+<templates>
+    <t t-name="membership_profile_search.MemberList">
+        <div class="member-list-container">
+            <h1>Danh sách hội viên</h1>
+            <p style="margin-bottom: 30px;">
+                Hội viên chính thức được công nhận và*miễn phí* lưu giữ hồ sơ điện tử tại Hiệp hội Doanh nghiệp Nhỏ và Vừa TP. Vũng Tàu...
+            </p>
+            <SearchBar onSearch="updateSearch"/>
+            <IndustryFilter industries="members.mapped('industry_id')" onIndustryChange="updateIndustry"/>
+            <t t-if="state.error">
+                <div class="alert alert-danger text-center">
+                    <t t-esc="state.error"/>
+                </div>
+            </t>
+            <div class="filter-stats mb-3">
+                Kết quả tìm được <span t-esc="len(members)"/> hội viên
+            </div>
+            <t t-if="not members and not state.error">
+                <div class="alert alert-info text-center">
+                    Không tìm thấy hội viên nào phù hợp với tiêu chí tìm kiếm.
+                </div>
+            </t>
+            <div class="row">
+                <t t-foreach="members" t-as="member">
+                    <MemberCard member="member"/>
+                </t>
+            </div>
+            <t t-if="total > limit">
+                <nav aria-label="Page navigation">
+                    <ul class="pagination justify-content-center mt-4">
+                        <li class="page-item">
+                            <a class="page-link" href="#" t-on-click="() => changePage(page - 1)" aria-label="Previous">
+                                <span aria-hidden="true">&laquo;</span>
+                            </a>
+                        </li>
+                        <t t-set="totalPages" t-value="Math.ceil(total / limit)"/>
+                        <t t-foreach="[...Array(totalPages).keys()].map(i => i + 1)" t-as="p">
+                            <li class="page-item" t-att-class="p == page ? 'active' : ''">
+                                <a class="page-link" href="#" t-on-click="() => changePage(p)"><t t-esc="p"/></a>
+                            </li>
+                        </t>
+                        <li class="page-item" t-att-class="page == totalPages ? 'disabled' : ''">
+                            <a class="page-link" href="#" t-on-click="() => changePage(page + 1)" aria-label="Next">
+                                <span aria-hidden="true">&raquo;</span>
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
+            </t>
+        </div>
+    </t>
+</templates>

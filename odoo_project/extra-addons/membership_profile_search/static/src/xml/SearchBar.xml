@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates>
+    <t t-name="membership_profile_search.SearchBar">
+        <div class="search-bar-container">
+            <div class="input-group">
+                <input type="text" class="form-control" placeholder="Tìm kiếm theo tên, công ty, ngành nghề hoặc địa chỉ..."
+                    t-model="state.value" t-on-input="onInput" aria-label="Tìm kiếm hội viên"/>
+                <div class="input-group-append">
+                    <button class="btn btn-primary" type="button" t-on-click="onInput" aria-label="Tìm kiếm">Tìm kiếm</button>
+                </div>
+            </div>
+        </div>
+    </t>
+</templates>

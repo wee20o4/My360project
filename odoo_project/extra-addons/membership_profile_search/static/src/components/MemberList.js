@@ -14,63 +14,56 @@ export class MemberList extends Component {
       searchTerm: "",
       industry: "",
       members: Array.isArray(this.props.members) ? this.props.members : [],
+      page: 1,
+      total: 0,
+      limit: 12,
+      error: null, // Thêm trạng thái lỗi
     });
   }
 
-  updateSearch(searchTerm) {
+  async updateSearch(searchTerm) {
     this.state.searchTerm = searchTerm;
+    this.state.page = 1;
+    await this.fetchMembers();
   }
 
-  updateIndustry(industry) {
+  async updateIndustry(industry) {
     this.state.industry = industry;
+    this.state.page = 1;
+    await this.fetchMembers();
   }
 
-  get filteredMembers() {
-    const normalizedSearch = this.removeDiacritics(
-      this.state.searchTerm
-    ).toLowerCase();
-    const normalizedIndustry = this.removeDiacritics(
-      this.state.industry
-    ).toLowerCase();
-
-    return this.state.members.filter((member) => {
-      const name = this.removeDiacritics(member.name || "").toLowerCase();
-      const company = this.removeDiacritics(
-        member.company_name || ""
-      ).toLowerCase();
-      const industry = this.removeDiacritics(
-        member.industry_id?.name || ""
-      ).toLowerCase();
-      const address = this.removeDiacritics(
-        [
-          member.street,
-          member.city,
-          member.state_id?.name,
-          member.country_id?.name,
-        ]
-          .filter(Boolean)
-          .join(", ") || ""
-      ).toLowerCase();
-
-      const matchesSearch =
-        !normalizedSearch ||
-        name.includes(normalizedSearch) ||
-        company.includes(normalizedSearch) ||
-        industry.includes(normalizedSearch) ||
-        address.includes(normalizedSearch);
-
-      const matchesIndustry =
-        !normalizedIndustry || industry === normalizedIndustry;
-
-      return matchesSearch && matchesIndustry;
-    });
+  async changePage(page) {
+    this.state.page = page;
+    await this.fetchMembers();
   }
 
-  removeDiacritics(str) {
-    return str
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/đ/g, "d")
-      .replace(/Đ/g, "D");
+  async fetchMembers() {
+    try {
+      const response = await fetch(
+        `/membership/data?search=${encodeURIComponent(
+          this.state.searchTerm
+        )}&industry=${encodeURIComponent(this.state.industry)}&page=${
+          this.state.page
+        }`
+      );
+      if (!response.ok) {
+        throw new Error("Không thể tải dữ liệu hội viên");
+      }
+      const data = await response.json();
+      if (!Array.isArray(data)) {
+        throw new Error("Dữ liệu trả về không hợp lệ");
+      }
+      this.state.members = data;
+      this.state.total = data.length || 0;
+      this.state.limit = 12;
+      this.state.error = null;
+    } catch (error) {
+      console.error("Lỗi khi tải dữ liệu hội viên:", error);
+      this.state.members = [];
+      this.state.total = 0;
+      this.state.error =
+        "Không thể tải dữ liệu hội viên. Vui lòng thử lại sau.";
+    }
   }
 }

@@ -16,7 +16,6 @@ environment:
 - HOST=db
 - USER=odoo
 - PASSWORD=odoo
-- LOG_LEVEL=ERROR
 restart: unless-stopped
 db:
 image: postgres:13
@@ -46,7 +45,7 @@ db_password = odoo
 db_name = odoo
 admin_passwd = 12345
 xmlrpc_port = 8069
-log_level = error
+log_level = info
 ---.idea\projectSettingsUpdater.xml
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
@@ -108,6 +107,27 @@ log_level = error
 <option name="CLEAR_INITIAL_COMMIT_MESSAGE" value="true" />
 </component>
 </project>
+---extra-addons\membership_profile_search\hooks.py
+from odoo import api, SUPERUSER_ID # type: ignore
+
+def clear_asset_cache(cr, registry):
+env = api.Environment(cr, SUPERUSER_ID, {})
+# Chỉ xóa các bản ghi ir.attachment liên quan đến module membership_profile_search
+attachments = env['ir.attachment'].search([
+('url', 'like', '/web/assets/%'),
+('res_model', '=', False),
+('res_id', '=', False),
+('name', 'like', 'membership_profile_search%'),  # Giới hạn trong tài nguyên của module
+])
+if attachments:
+attachments.unlink()
+
+# Xóa các view không còn được sử dụng liên quan đến membership_profile_search
+views = env['ir.ui.view'].search([
+('key', 'like', 'membership_profile_search.%'),
+])
+if views:
+views.unlink()
 ---extra-addons\membership_profile_search\utils.py
 import unicodedata
 import re
@@ -125,9 +145,11 @@ text = re.sub(r'[\u0300-\u036f]', '', text)
 text = text.replace('đ', 'd').replace('Đ', 'D')
 return text
 ---extra-addons\membership_profile_search\__init__.py
+# extra-addons/membership_profile_search/__init__.py
 from . import controllers
 from . import models
 from . import utils
+from . import hooks
 ---extra-addons\membership_profile_search\__manifest__.py
 {
 'name': 'Membership Profile Search',
@@ -156,6 +178,7 @@ Mô-đun Membership Profile Search cung cấp chức năng quản lý và hiển
 'membership_profile_search/static/src/js/membership_search.js',
 'membership_profile_search/static/src/components/*.js',
 'membership_profile_search/static/src/css/*.css',
+'membership_profile_search/static/src/xml/*.xml',
 'membership_profile_search/static/img/placeholder.png',
 ],
 },
@@ -167,21 +190,23 @@ Mô-đun Membership Profile Search cung cấp chức năng quản lý và hiển
 'installable': True,
 'application': True,
 'license': 'LGPL-3',
+'post_init_hook': 'clear_asset_cache',
 }
 ---extra-addons\membership_profile_search\controllers\main.py
 # extra-addons/membership_profile_search/controllers/main.py
-
-from odoo import http  # type: ignore
-from odoo.http import request  # type: ignore
-from werkzeug.exceptions import NotFound  # type: ignore
-from .. import utils  # Import utils
+from odoo import http
+from odoo.http import request
+from werkzeug.exceptions import NotFound
+from .. import utils
 import traceback
+import json
 
 class MembershipProfileSearchController(http.Controller):
 @http.route('/membership', type='http', auth='public', website=True)
 def list_members(self, **kwargs):
 try:
-search_term = kwargs.get('search', '').strip()
+search_term = ' '.join(kwargs.get('search', '').strip().split())
+industry = ' '.join(kwargs.get('industry', '').strip().split())
 domain = [
 ('membership_state', '!=', 'none'),
 ('website_published', '=', True),
@@ -190,25 +215,24 @@ domain = [
 if search_term:
 normalized_search = utils.remove_diacritics(search_term).lower()
 domain += ['|', '|', '|',
-('name', 'ilike', search_term),
-('company_name', 'ilike', search_term),
-('industry_id.name', 'ilike', search_term),
-('street', 'ilike', search_term)]
+('name_no_diacritics', 'ilike', normalized_search),
+('company_name_no_diacritics', 'ilike', normalized_search),
+('industry_id.name', 'ilike', normalized_search),
+('street_no_diacritics', 'ilike', normalized_search)]
 
-members = request.env['res.partner'].search(domain)
-for member in members:
-if not member.company_name and member.parent_id:
-member.company_name = member.parent_id.name or ''
-elif not member.company_name:
-member.company_name = member.name if member.is_company else ''
+if industry:
+normalized_industry = utils.remove_diacritics(industry).lower()
+domain += [('industry_id.name', 'ilike', normalized_industry)]
 
+members = request.env['res.partner'].sudo().search(domain)
 return request.render('membership_profile_search.membership_profile_search_list_template', {
 'members': members,
-'search': search_term
+'search': search_term,
+'industry': industry
 })
 except Exception as e:
 error_trace = traceback.format_exc()
-request.env['ir.logging'].create({
+request.env['ir.logging'].sudo().create({
 'name': 'MembershipProfileSearch',
 'type': 'server',
 'level': 'ERROR',
@@ -219,20 +243,63 @@ request.env['ir.logging'].create({
 })
 return request.render('website.page_404', {'error': 'Không thể tải danh sách hội viên. Vui lòng thử lại sau.'}, status=500)
 
-@http.route('/partners/<model("res.partner"):partner>', type='http', auth='public', website=True)
-def member_detail(self, partner, **kwargs):
-if not partner.website_published or partner.membership_state == 'none':
-if not request.env.user.has_group('base.group_user'):
-raise NotFound()
-values = {
-'partner': partner,
-'main_object': partner,
-}
-return request.render("website_partner.partner_page", values)
+@http.route('/membership/data', type='json', auth='public', website=True)
+def get_members_data(self, **kwargs):
+try:
+search_term = ' '.join(kwargs.get('search', '').strip().split())
+industry = ' '.join(kwargs.get('industry', '').strip().split())
+page = int(kwargs.get('page', 1))
+limit = int(kwargs.get('limit', 12))
+offset = (page - 1) * limit
+
+domain = [
+('membership_state', '!=', 'none'),
+('website_published', '=', True),
+]
+
+if search_term:
+normalized_search = utils.remove_diacritics(search_term).lower()
+domain += ['|', '|', '|',
+('name_no_diacritics', 'ilike', normalized_search),
+('company_name_no_diacritics', 'ilike', normalized_search),
+('industry_id.name', 'ilike', normalized_search),
+('street_no_diacritics', 'ilike', normalized_search)]
+
+if industry:
+normalized_industry = utils.remove_diacritics(industry).lower()
+domain += [('industry_id.name', 'ilike', normalized_industry)]
+
+members = request.env['res.partner'].sudo().search(domain, offset=offset, limit=limit)
+total = request.env['res.partner'].sudo().search_count(domain)
+members_data = [{
+'id': member.id,
+'name': member.name or '',
+'company_name': member.company_name or '',
+'industry_id': {'name': member.industry_id.name or ''},
+'street': member.street or '',
+'city': member.city or '',
+'state_id': {'name': member.state_id.name or ''},
+'country_id': {'name': member.country_id.name or ''},
+'image_1920': member.image_1920 or ''
+} for member in members]
+return {'members': members_data, 'total': total, 'limit': limit}
+except Exception as e:
+error_trace = traceback.format_exc()
+request.env['ir.logging'].sudo().create({
+'name': 'MembershipProfileSearch',
+'type': 'server',
+'level': 'ERROR',
+'message': f"Error: {str(e)}\nTraceback: {error_trace}",
+'path': '/membership/data',
+'func': 'get_members_data',
+'line': 1,
+})
+return {'members': [], 'total': 0, 'limit': 12}
 ---extra-addons\membership_profile_search\controllers\__init__.py
 from . import main
 ---extra-addons\membership_profile_search\models\membership_profile_search.py
 from odoo import fields, models, api # type: ignore
+from .. import utils
 
 class MembershipProfileSearch(models.Model):
 _inherit = 'res.partner'
@@ -245,16 +312,31 @@ street = fields.Char(string='Street')
 city = fields.Char(string='City')
 state_id = fields.Many2one('res.country.state', string='State')
 country_id = fields.Many2one('res.country', string='Country')
+name_no_diacritics = fields.Char(
+string='Name No Diacritics', store=True, compute='_compute_no_diacritics', index=True
+)
+company_name_no_diacritics = fields.Char(
+string='Company Name No Diacritics', store=True, compute='_compute_no_diacritics', index=True
+)
+street_no_diacritics = fields.Char(
+string='Street No Diacritics', store=True, compute='_compute_no_diacritics', index=True
+)
 
 @api.depends('parent_id', 'parent_id.name', 'name', 'is_company')
 def _compute_company_name(self):
 for partner in self:
-if partner.parent_id and partner.parent_id.name:
-partner.company_name = partner.parent_id.name
-elif partner.is_company and partner.name:
-partner.company_name = partner.name
-else:
-partner.company_name = ''
+partner.company_name = (
+partner.parent_id.name if partner.parent_id and partner.parent_id.name
+else partner.name if partner.is_company and partner.name
+else ''
+)
+
+@api.depends('name', 'company_name', 'street')
+def _compute_no_diacritics(self):
+for partner in self:
+partner.name_no_diacritics = utils.remove_diacritics(partner.name or '')
+partner.company_name_no_diacritics = utils.remove_diacritics(partner.company_name or '')
+partner.street_no_diacritics = utils.remove_diacritics(partner.street or '')
 ---extra-addons\membership_profile_search\models\__init__.py
 from . import membership_profile_search
 ---extra-addons\membership_profile_search\security\ir.model.access.csv
@@ -271,6 +353,7 @@ static template = "membership_profile_search.IndustryFilter";
 
 setup() {
 this.state = useState({ activeIndustry: "" });
+this.industries = Array.isArray(this.props.industries) ? this.props.industries : [];
 }
 
 setIndustry(industry) {
@@ -287,7 +370,7 @@ export class MemberCard extends Component {
 static template = "membership_profile_search.MemberCard";
 
 get imageSrc() {
-return this.props.member.image_1920
+return this.props.member.image_1920 && this.props.member.image_1920 !== ""
 ? `/web/image/res.partner/${this.props.member.id}/image_1920`
 : "/membership_profile_search/static/img/placeholder.png";
 }
@@ -309,64 +392,57 @@ this.state = useState({
 searchTerm: "",
 industry: "",
 members: Array.isArray(this.props.members) ? this.props.members : [],
+page: 1,
+total: 0,
+limit: 12,
+error: null, // Thêm trạng thái lỗi
 });
 }
 
-updateSearch(searchTerm) {
+async updateSearch(searchTerm) {
 this.state.searchTerm = searchTerm;
+this.state.page = 1;
+await this.fetchMembers();
 }
 
-updateIndustry(industry) {
+async updateIndustry(industry) {
 this.state.industry = industry;
+this.state.page = 1;
+await this.fetchMembers();
 }
 
-get filteredMembers() {
-const normalizedSearch = this.removeDiacritics(
+async changePage(page) {
+this.state.page = page;
+await this.fetchMembers();
+}
+
+async fetchMembers() {
+try {
+const response = await fetch(
+`/membership/data?search=${encodeURIComponent(
 this.state.searchTerm
-).toLowerCase();
-const normalizedIndustry = this.removeDiacritics(
-this.state.industry
-).toLowerCase();
-
-return this.state.members.filter((member) => {
-const name = this.removeDiacritics(member.name || "").toLowerCase();
-const company = this.removeDiacritics(
-member.company_name || ""
-).toLowerCase();
-const industry = this.removeDiacritics(
-member.industry_id?.name || ""
-).toLowerCase();
-const address = this.removeDiacritics(
-[
-member.street,
-member.city,
-member.state_id?.name,
-member.country_id?.name,
-]
-.filter(Boolean)
-.join(", ") || ""
-).toLowerCase();
-
-const matchesSearch =
-!normalizedSearch ||
-name.includes(normalizedSearch) ||
-company.includes(normalizedSearch) ||
-industry.includes(normalizedSearch) ||
-address.includes(normalizedSearch);
-
-const matchesIndustry =
-!normalizedIndustry || industry === normalizedIndustry;
-
-return matchesSearch && matchesIndustry;
-});
+)}&industry=${encodeURIComponent(this.state.industry)}&page=${
+this.state.page
+}`
+);
+if (!response.ok) {
+throw new Error("Không thể tải dữ liệu hội viên");
 }
-
-removeDiacritics(str) {
-return str
-.normalize("NFD")
-.replace(/[\u0300-\u036f]/g, "")
-.replace(/đ/g, "d")
-.replace(/Đ/g, "D");
+const data = await response.json();
+if (!Array.isArray(data)) {
+throw new Error("Dữ liệu trả về không hợp lệ");
+}
+this.state.members = data;
+this.state.total = data.length || 0;
+this.state.limit = 12;
+this.state.error = null;
+} catch (error) {
+console.error("Lỗi khi tải dữ liệu hội viên:", error);
+this.state.members = [];
+this.state.total = 0;
+this.state.error =
+"Không thể tải dữ liệu hội viên. Vui lòng thử lại sau.";
+}
 }
 }
 ---extra-addons\membership_profile_search\static\src\components\SearchBar.js
@@ -503,8 +579,135 @@ document.addEventListener("DOMContentLoaded", () => {
 const root = document.querySelector(".member-list-container");
 if (root) {
 mount(MemberList, root, { props: { members: window.members || [] } });
+} else {
+console.error("Không tìm thấy phần tử .member-list-container. Đảm bảo template đã được render.");
 }
 });
+---extra-addons\membership_profile_search\static\src\xml\IndustryFilter.xml
+<?xml version="1.0" encoding="UTF-8"?>
+<templates>
+<t t-name="membership_profile_search.IndustryFilter">
+<div class="industry-filter-container">
+<div class="industry-buttons">
+<button class="industry-btn" t-att-class="state.activeIndustry == '' ? 'active' : ''"
+t-on-click="() => setIndustry('')" aria-label="Tất cả ngành nghề">Tất cả ngành nghề</button>
+<t t-if="industries and len(industries) > 0">
+<t t-foreach="industries" t-as="industry">
+<button class="industry-btn" t-att-class="state.activeIndustry == industry.name ? 'active' : ''"
+t-att-data-industry="industry.name" t-on-click="() => setIndustry(industry.name)"
+t-att-aria-label="'Lọc theo ngành ' + industry.name">
+<t t-esc="industry.name"/>
+</button>
+</t>
+</t>
+<t t-else="">
+<div class="alert alert-info text-center">
+Không có ngành nghề nào được định nghĩa.
+</div>
+</t>
+</div>
+</div>
+</t>
+</templates>
+---extra-addons\membership_profile_search\static\src\xml\MemberCard.xml
+<?xml version="1.0" encoding="UTF-8"?>
+<templates>
+<t t-name="membership_profile_search.MemberCard">
+<div class="col-md-4 col-sm-6 mb-4">
+<div class="member-card h-100 shadow-sm">
+<a t-att-href="'/partners/%s' % slug(member)" class="text-decoration-none text-dark">
+<img t-att-src="imageSrc" t-att-alt="'Member Avatar: ' + (member.name or '')"
+class="card-img-top rounded-circle mx-auto mt-3" style="width: 120px; height: 120px; object-fit: cover;"
+loading="lazy"/>
+<div class="card-body text-center">
+<h5 class="card-title"><strong><t t-esc="member.name or ''"/></strong></h5>
+<p class="card-text"><strong>Công ty: </strong><t t-esc="member.company_name or '-'"/></p>
+<p class="card-text" t-att-data-industry="member.industry_id.name or ''">
+<strong>Ngành nghề: </strong><t t-esc="member.industry_id.name or ''"/>
+</p>
+<p class="card-text">
+<strong>Địa chỉ: </strong>
+<t t-esc="', '.join(filter(None, [member.street, member.city, member.state_id.name if member.state_id else None, member.country_id.name if member.country_id else None])) or '-'"/>
+</p>
+</div>
+</a>
+</div>
+</div>
+</t>
+</templates>
+---extra-addons\membership_profile_search\static\src\xml\MemberList.xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE templates [
+<!ENTITY laquo "entity-value">
+<!ENTITY raquo "entity-value">
+]>
+<templates>
+<t t-name="membership_profile_search.MemberList">
+<div class="member-list-container">
+<h1>Danh sách hội viên</h1>
+<p style="margin-bottom: 30px;">
+Hội viên chính thức được công nhận và*miễn phí* lưu giữ hồ sơ điện tử tại Hiệp hội Doanh nghiệp Nhỏ và Vừa TP. Vũng Tàu...
+</p>
+<SearchBar onSearch="updateSearch"/>
+<IndustryFilter industries="members.mapped('industry_id')" onIndustryChange="updateIndustry"/>
+<t t-if="state.error">
+<div class="alert alert-danger text-center">
+<t t-esc="state.error"/>
+</div>
+</t>
+<div class="filter-stats mb-3">
+Kết quả tìm được <span t-esc="len(members)"/> hội viên
+</div>
+<t t-if="not members and not state.error">
+<div class="alert alert-info text-center">
+Không tìm thấy hội viên nào phù hợp với tiêu chí tìm kiếm.
+</div>
+</t>
+<div class="row">
+<t t-foreach="members" t-as="member">
+<MemberCard member="member"/>
+</t>
+</div>
+<t t-if="total > limit">
+<nav aria-label="Page navigation">
+<ul class="pagination justify-content-center mt-4">
+<li class="page-item">
+<a class="page-link" href="#" t-on-click="() => changePage(page - 1)" aria-label="Previous">
+<span aria-hidden="true">&laquo;</span>
+</a>
+</li>
+<t t-set="totalPages" t-value="Math.ceil(total / limit)"/>
+<t t-foreach="[...Array(totalPages).keys()].map(i => i + 1)" t-as="p">
+<li class="page-item" t-att-class="p == page ? 'active' : ''">
+<a class="page-link" href="#" t-on-click="() => changePage(p)"><t t-esc="p"/></a>
+</li>
+</t>
+<li class="page-item" t-att-class="page == totalPages ? 'disabled' : ''">
+<a class="page-link" href="#" t-on-click="() => changePage(page + 1)" aria-label="Next">
+<span aria-hidden="true">&raquo;</span>
+</a>
+</li>
+</ul>
+</nav>
+</t>
+</div>
+</t>
+</templates>
+---extra-addons\membership_profile_search\static\src\xml\SearchBar.xml
+<?xml version="1.0" encoding="UTF-8"?>
+<templates>
+<t t-name="membership_profile_search.SearchBar">
+<div class="search-bar-container">
+<div class="input-group">
+<input type="text" class="form-control" placeholder="Tìm kiếm theo tên, công ty, ngành nghề hoặc địa chỉ..."
+t-model="state.value" t-on-input="onInput" aria-label="Tìm kiếm hội viên"/>
+<div class="input-group-append">
+<button class="btn btn-primary" type="button" t-on-click="onInput" aria-label="Tìm kiếm">Tìm kiếm</button>
+</div>
+</div>
+</div>
+</t>
+</templates>
 ---extra-addons\membership_profile_search\tests\test_membership_profile_search.py
 from odoo.tests import tagged  # type: ignore
 from odoo.tests.common import HttpCase  # type: ignore
@@ -642,13 +845,13 @@ self.assertTrue(empty_partner.name in response.text, "Không tìm thấy hội v
 <t t-call="website.layout">
 <t t-set="head">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
-<link rel="stylesheet" type="text/css" href="/membership_profile_search/static/src/css/member_list.css"/>
+<link rel="stylesheet" type="text/css" href="/membership_profile_search/static/src/css/membership_search.css"/>
 <link rel="stylesheet" type="text/css" href="/membership_profile_search/static/src/css/search_bar.css"/>
 <link rel="stylesheet" type="text/css" href="/membership_profile_search/static/src/css/industry_filter.css"/>
 <link rel="stylesheet" type="text/css" href="/membership_profile_search/static/src/css/member_card.css"/>
 </t>
 <script type="text/javascript">
-window.members = <t t-if="members">[<t t-foreach="members" t-as="member"><t t-if="member">
+window.members = <t t-if="members and len(members) > 0">[<t t-foreach="members" t-as="member">
 {
 "id": <t t-esc="member.id"/>,
 "name": "<t t-esc="member.name or ''" t-options='{"widget": "char"}'/>",
@@ -665,85 +868,9 @@ window.members = <t t-if="members">[<t t-foreach="members" t-as="member"><t t-if
 "name": "<t t-esc="member.country_id.name or ''" t-options='{"widget": "char"}'/>"
 },
 "image_1920": "<t t-esc="member.image_1920 or ''" t-options='{"widget": "char"}'/>"
-}<t t-if="not member_last">,</t></t></t>]</t> || [];
+}<t t-if="not member_last">,</t></t>]</t><t t-else="">[]</t>;
 </script>
-<t t-call="membership_profile_search.MemberList"/>
+<div class="member-list-container"/>
 </t>
 </template>
-
-<template id="MemberList" name="Member List Component">
-<div class="member-list-container">
-<h1>Danh sách hội viên</h1>
-<p style="margin-bottom: 30px;">
-Hội viên chính thức được công nhận và lưu giữ hồ sơ điện tử tại Hiệp hội Doanh nghiệp Nhỏ và Vừa TP. Vũng Tàu...
-</p>
-<SearchBar onSearch="updateSearch"/>
-<IndustryFilter industries="members.mapped('industry_id')" onIndustryChange="updateIndustry"/>
-<div class="filter-stats mb-3">
-Kết quả tìm được <span t-esc="filteredMembers.length"/> hội viên
-</div>
-<t t-if="not filteredMembers">
-<div class="alert alert-info text-center">
-Không tìm thấy hội viên nào phù hợp với tiêu chí tìm kiếm.
-</div>
-</t>
-<div class="row">
-<t t-foreach="filteredMembers" t-as="member">
-<MemberCard member="member"/>
-</t>
-</div>
-</div>
-</template>
-
-<template id="SearchBar" name="Search Bar Component">
-<div class="search-bar-container">
-<div class="input-group">
-<input type="text" class="form-control" placeholder="Tìm kiếm theo tên, công ty, ngành nghề hoặc địa chỉ..."
-t-model="state.value" t-on-input="onInput" aria-label="Tìm kiếm hội viên"/>
-<div class="input-group-append">
-<button class="btn btn-primary" type="button" t-on-click="onInput" aria-label="Tìm kiếm">Tìm kiếm</button>
-</div>
-</div>
-</div>
-</template>
-
-<template id="IndustryFilter" name="Industry Filter Component">
-<div class="industry-filter-container">
-<div class="industry-buttons">
-<button class="industry-btn" t-att-class="state.activeIndustry == '' ? 'active' : ''"
-t-on-click="() => setIndustry('')" aria-label="Tất cả ngành nghề">Tất cả ngành nghề</button>
-<t t-foreach="industries" t-as="industry">
-<button class="industry-btn" t-att-class="state.activeIndustry == industry.name ? 'active' : ''"
-t-att-data-industry="industry.name" t-on-click="() => setIndustry(industry.name)"
-t-att-aria-label="'Lọc theo ngành ' + industry.name">
-<t t-esc="industry.name"/>
-</button>
-</t>
-</div>
-</div>
-</template>
-
-<template id="MemberCard" name="Member Card Component">
-<div class="col-md-4 col-sm-6 mb-4">
-<div class="member-card h-100 shadow-sm">
-<a t-att-href="'/partners/%s' % slug(member)" class="text-decoration-none text-dark">
-<img t-att-src="imageSrc" t-att-alt="'Member Avatar: ' + (member.name or '')"
-class="card-img-top rounded-circle mx-auto mt-3" style="width: 120px; height: 120px; object-fit: cover;"
-loading="lazy"/>
-<div class="card-body text-center">
-<h5 class="card-title"><strong><t t-esc="member.name or ''"/></strong></h5>
-<p class="card-text"><strong>Công ty: </strong><t t-esc="member.company_name or '-'"/></p>
-<p class="card-text" t-att-data-industry="member.industry_id.name or ''">
-<strong>Ngành nghề: </strong><t t-esc="member.industry_id.name or ''"/>
-</p>
-<p class="card-text">
-<strong>Địa chỉ: </strong>
-<t t-esc="', '.join(filter(None, [member.street, member.city, member.state_id.name if member.state_id else None, member.country_id.name if member.country_id else None])) or '-'"/>
-</p>
-</div>
-</a>
-</div>
-</div>
-</template>
-
 </odoo>

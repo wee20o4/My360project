@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates>
+    <t t-name="membership_profile_search.MemberCard">
+        <div class="col-md-4 col-sm-6 mb-4">
+            <div class="member-card h-100 shadow-sm">
+                <a t-att-href="'/partners/%s' % slug(member)" class="text-decoration-none text-dark">
+                    <img t-att-src="imageSrc" t-att-alt="'Member Avatar: ' + (member.name or '')"
+                        class="card-img-top rounded-circle mx-auto mt-3" style="width: 120px; height: 120px; object-fit: cover;"
+                        loading="lazy"/>
+                    <div class="card-body text-center">
+                        <h5 class="card-title"><strong><t t-esc="member.name or ''"/></strong></h5>
+                        <p class="card-text"><strong>Công ty: </strong><t t-esc="member.company_name or '-'"/></p>
+                        <p class="card-text" t-att-data-industry="member.industry_id.name or ''">
+                            <strong>Ngành nghề: </strong><t t-esc="member.industry_id.name or ''"/>
+                        </p>
+                        <p class="card-text">
+                            <strong>Địa chỉ: </strong>
+                            <t t-esc="', '.join(filter(None, [member.street, member.city, member.state_id.name if member.state_id else None, member.country_id.name if member.country_id else None])) or '-'"/>
+                        </p>
+                    </div>
+                </a>
+            </div>
+        </div>
+    </t>
+</templates>

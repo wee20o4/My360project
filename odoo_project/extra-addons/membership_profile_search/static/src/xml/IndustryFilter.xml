@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates>
+    <t t-name="membership_profile_search.IndustryFilter">
+        <div class="industry-filter-container">
+            <div class="industry-buttons">
+                <button class="industry-btn" t-att-class="state.activeIndustry == '' ? 'active' : ''"
+                    t-on-click="() => setIndustry('')" aria-label="Tất cả ngành nghề">Tất cả ngành nghề</button>
+                <t t-if="industries and len(industries) > 0">
+                    <t t-foreach="industries" t-as="industry">
+                        <button class="industry-btn" t-att-class="state.activeIndustry == industry.name ? 'active' : ''"
+                            t-att-data-industry="industry.name" t-on-click="() => setIndustry(industry.name)"
+                            t-att-aria-label="'Lọc theo ngành ' + industry.name">
+                            <t t-esc="industry.name"/>
+                        </button>
+                    </t>
+                </t>
+                <t t-else="">
+                    <div class="alert alert-info text-center">
+                        Không có ngành nghề nào được định nghĩa.
+                    </div>
+                </t>
+            </div>
+        </div>
+    </t>
+</templates>
