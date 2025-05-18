@@ -44,6 +44,11 @@
                     Kết quả tìm được
                     <span id="memberCounter">0</span> hội viên
                 </div>
+                <t t-if="not members">
+                    <div class="alert alert-info text-center">
+                        Không tìm thấy hội viên nào phù hợp với tiêu chí tìm kiếm.
+                    </div>
+                </t>
                 <div class="row">
                     <t t-foreach="members" t-as="member">
                         <div class="col-md-4 col-sm-6 mb-4 card-container">

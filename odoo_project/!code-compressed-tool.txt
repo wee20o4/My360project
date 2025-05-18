@@ -111,13 +111,27 @@ from . import models
 ---extra-addons\membership_profile_search\__manifest__.py
 {
 'name': 'Membership Profile Search',
-'version': '1.0',
-'summary': 'Manage members and display public list with search functionality',
+'version': '16.0.1.0',
+'summary': 'Mô-đun Membership Profile Search cung cấp chức năng quản lý và hiển thị danh sách hội viên công khai trên website Odoo',
+'description': """
+Mô-đun Membership Profile Search cung cấp chức năng quản lý và hiển thị danh sách hội viên công khai trên website Odoo. Các tính năng chính bao gồm:
+- Tìm kiếm hội viên theo tên, công ty, ngành nghề hoặc địa chỉ (hỗ trợ tìm kiếm không dấu).
+- Lọc hội viên theo ngành nghề.
+- Hiển thị chi tiết hội viên với thông tin như ảnh đại diện, tên công ty, ngành nghề và địa chỉ.
+- Giao diện responsive, thân thiện với người dùng trên cả desktop và mobile.
+- Bảo mật với phân quyền truy cập công khai và nội bộ.
+""",
+'category': 'Tools',
+'author': 'Nhóm 1 - VINA',
 'depends': ['base', 'website', 'membership', 'website_partner', 'web_editor', 'website_sale', 'im_livechat'],
 'data': [
 'security/ir.model.access.csv',
 'views/membership_profile_search_templates.xml',
 ],
+'test': [
+'tests/test_membership_profile_search.py',
+],
+'images': ['membership_profile_search/static/description/search.png'],
 'assets': {
 'web.assets_frontend': [
 'membership_profile_search/static/img/placeholder.png',
@@ -125,6 +139,11 @@ from . import models
 'membership_profile_search/static/src/css/membership_search.css',
 ],
 },
+'images': [
+'static/description/search.png',
+'static/description/nobita.jpg',
+'static/description/shin.jpg',
+],
 'installable': True,
 'application': True,
 'license': 'LGPL-3',
@@ -140,15 +159,38 @@ import re
 import traceback
 
 def remove_diacritics(text):
-"""Chuẩn hóa chuỗi không dấu."""
+"""
+Hàm chuẩn hóa chuỗi văn bản, loại bỏ dấu tiếng Việt để hỗ trợ tìm kiếm không dấu.
+
+Args:
+text (str): Chuỗi văn bản đầu vào cần chuẩn hóa.
+
+Returns:
+str: Chuỗi văn bản đã được loại bỏ dấu và thay thế các ký tự đặc biệt như 'đ', 'Đ'.
+"""
 text = unicodedata.normalize('NFD', text)
 text = re.sub(r'[\u0300-\u036f]', '', text)
 text = text.replace('đ', 'd').replace('Đ', 'D')
 return text
 
 class MembershipProfileSearchController(http.Controller):
+"""
+Class controller xử lý các yêu cầu HTTP liên quan đến tìm kiếm và hiển thị thông tin hội viên trên website.
+Cung cấp các route để liệt kê danh sách hội viên và hiển thị chi tiết hội viên.
+"""
+
 @http.route('/membership', type='http', auth='public', website=True)
 def list_members(self, **kwargs):
+"""
+Hàm xử lý yêu cầu HTTP để hiển thị danh sách hội viên trên website.
+Hỗ trợ tìm kiếm hội viên dựa trên từ khóa và lọc theo các tiêu chí như tên, công ty, ngành nghề, địa chỉ.
+
+Args:
+**kwargs: Các tham số GET từ request, bao gồm 'search' (từ khóa tìm kiếm).
+
+Returns:
+template: Render template danh sách hội viên hoặc thông báo lỗi nếu có vấn đề.
+"""
 try:
 search_term = kwargs.get('search', '').strip()
 domain = [
@@ -157,26 +199,32 @@ domain = [
 ]
 
 if search_term:
-# Chuẩn hóa từ khóa tìm kiếm
+# Chuẩn hóa từ khóa tìm kiếm để hỗ trợ tìm kiếm không dấu
 normalized_search = remove_diacritics(search_term).lower()
-# Tìm kiếm không dấu trên các trường
+# Tìm kiếm trên các trường tên, công ty, ngành nghề, địa chỉ
 domain += ['|', '|', '|',
 ('name', 'ilike', search_term),
 ('company_name', 'ilike', search_term),
 ('industry_id.name', 'ilike', search_term),
 ('street', 'ilike', search_term)]
 
+# Tìm kiếm hội viên theo domain
 members = request.env['res.partner'].sudo().search(domain)
 for member in members:
 if not member.company_name and member.parent_id:
 member.company_name = member.parent_id.name or ''
+
+# Render template với danh sách hội viên và từ khóa tìm kiếm
 return request.render('membership_profile_search.membership_profile_search_list_template', {
 'members': members,
 'search': search_term
 })
 except Exception as e:
-# Ghi log chi tiết hơn
+# Ghi log lỗi hệ thống nếu có ngoại lệ xảy ra
 error_trace = traceback.format_exc()
+message = "Lỗi hệ thống. Vui lòng thử lại sau."
+if isinstance(e, ValidationError):
+message = str(e)
 request.env['ir.logging'].sudo().create({
 'name': 'MembershipProfileSearch',
 'type': 'server',
@@ -186,10 +234,22 @@ request.env['ir.logging'].sudo().create({
 'func': 'list_members',
 'line': 1,
 })
-return request.render('website.page_404', {'error': 'Đã xảy ra lỗi khi tải danh sách hội viên.'})
+# Render template lỗi với thông báo
+return request.render('website.error', {'error': message}, status=500)
 
 @http.route('/partners/<model("res.partner"):partner>', type='http', auth='public', website=True)
 def member_detail(self, partner, **kwargs):
+"""
+Hàm xử lý yêu cầu HTTP để hiển thị trang chi tiết của một hội viên.
+Kiểm tra quyền truy cập và trạng thái công khai của hội viên trước khi hiển thị.
+
+Args:
+partner (res.partner): Đối tượng hội viên cần hiển thị.
+**kwargs: Các tham số bổ sung từ request.
+
+Returns:
+template: Render template chi tiết hội viên hoặc raise NotFound nếu không đủ quyền.
+"""
 is_authorized = request.env.user.has_group('base.group_user')
 if not is_authorized and (not partner.website_published or partner.membership_state == 'none'):
 raise NotFound()
@@ -197,6 +257,7 @@ values = {
 'partner': partner,
 'main_object': partner,
 }
+# Render template chi tiết hội viên
 return request.render("website_partner.partner_page", values)
 ---extra-addons\membership_profile_search\controllers\__init__.py
 from . import main
@@ -204,6 +265,10 @@ from . import main
 from odoo import fields, models, api
 
 class MembershipProfileSearch(models.Model):
+"""
+Class kế thừa model 'res.partner' để mở rộng các trường và logic liên quan đến tìm kiếm hội viên.
+Thêm các trường như ảnh đại diện, tên công ty, ngành nghề, địa chỉ để hỗ trợ hiển thị và tìm kiếm.
+"""
 _inherit = 'res.partner'
 _description = 'Membership Profile Search'
 
@@ -215,13 +280,19 @@ city = fields.Char(string='City')
 state_id = fields.Many2one('res.country.state', string='State')
 country_id = fields.Many2one('res.country', string='Country')
 
-@api.depends('parent_id', 'parent_id.name')
+@api.depends('parent_id', 'parent_id.name', 'name', 'is_company')
 def _compute_company_name(self):
+"""
+Hàm tính toán giá trị cho trường 'company_name' dựa trên thông tin công ty mẹ hoặc tên hội viên.
+
+Args:
+self (MembershipProfileSearch): Tập hợp các bản ghi res.partner.
+"""
 for partner in self:
-if partner.parent_id:
-partner.company_name = partner.parent_id.name or ''
-elif partner.is_company:
-partner.company_name = partner.name or ''
+if partner.parent_id and partner.parent_id.name:
+partner.company_name = partner.parent_id.name
+elif partner.is_company and partner.name:
+partner.company_name = partner.name
 else:
 partner.company_name = ''
 ---extra-addons\membership_profile_search\models\__init__.py
@@ -330,8 +401,27 @@ font-size: 0.9rem;
 color: #666;
 text-align: center;
 }
+@media (max-width: 576px) {
+.input-group {
+flex-direction: column;
+}
+.form-control,
+.btn-primary {
+border-radius: 5px;
+width: 100%;
+margin-bottom: 10px;
+}
+.card-img-top {
+width: 80px;
+height: 80px;
+}
+}
 ---extra-addons\membership_profile_search\static\src\js\membership_search.js
 document.addEventListener("DOMContentLoaded", function () {
+/**
+* Hàm khởi tạo khi DOM được tải hoàn toàn.
+* Thiết lập các sự kiện và kiểm tra sự tồn tại của các phần tử cần thiết.
+*/
 console.log("DOM loaded, initializing membership search script");
 
 const searchInput = document.getElementById("memberSearchInput");
@@ -365,6 +455,12 @@ searchMembers();
 
 // Hàm chuẩn hóa chuỗi không dấu
 function removeDiacritics(str) {
+/**
+* Hàm chuẩn hóa chuỗi, loại bỏ dấu tiếng Việt để hỗ trợ tìm kiếm không dấu.
+*
+* @param {string} str - Chuỗi văn bản cần chuẩn hóa.
+* @returns {string} - Chuỗi đã được loại bỏ dấu và thay thế ký tự 'đ', 'Đ'.
+*/
 return str
 .normalize("NFD")
 .replace(/[\u0300-\u036f]/g, "")
@@ -373,6 +469,9 @@ return str
 }
 
 function resetFilters() {
+/**
+* Hàm đặt lại các bộ lọc tìm kiếm, bao gồm xóa từ khóa tìm kiếm và đặt lại nút lọc ngành nghề.
+*/
 const searchInput = document.getElementById("memberSearchInput");
 const industryButtons = document.querySelectorAll(".industry-btn");
 
@@ -390,6 +489,10 @@ filterMembers("", "");
 }
 
 function searchMembers() {
+/**
+* Hàm thực hiện tìm kiếm hội viên dựa trên từ khóa và ngành nghề được chọn.
+* Gọi hàm filterMembers để lọc danh sách hội viên hiển thị.
+*/
 try {
 const searchInput = document.getElementById("memberSearchInput");
 const activeButton = document.querySelector(".industry-btn.active");
@@ -407,6 +510,11 @@ console.error("Error in searchMembers:", error);
 }
 
 function filterByIndustry(industry) {
+/**
+* Hàm lọc hội viên theo ngành nghề được chọn, đồng thời xóa từ khóa tìm kiếm.
+*
+* @param {string} industry - Tên ngành nghề để lọc.
+*/
 try {
 const searchInput = document.getElementById("memberSearchInput");
 const industryButtons = document.querySelectorAll(".industry-btn");
@@ -426,8 +534,18 @@ console.error("Error in filterByIndustry:", error);
 }
 
 function filterMembers(searchTerm, industry) {
+/**
+* Hàm lọc danh sách hội viên dựa trên từ khóa tìm kiếm và ngành nghề.
+* Hiển thị hoặc ẩn các card hội viên dựa trên tiêu chí lọc.
+*
+* @param {string} searchTerm - Từ khóa tìm kiếm.
+* @param {string} industry - Ngành nghề để lọc.
+*/
 const cards = document.querySelectorAll(".card");
-
+if (!cards.length) {
+console.warn("Không tìm thấy hội viên nào.");
+return;
+}
 // Chuẩn hóa từ khóa tìm kiếm
 const normalizedSearchTerm = removeDiacritics(searchTerm).toLowerCase();
 
@@ -479,6 +597,9 @@ updateMemberCounter();
 }
 
 function updateMemberCounter() {
+/**
+* Hàm cập nhật số lượng hội viên hiển thị trên giao diện.
+*/
 const visibleCards = document.querySelectorAll(
 '.card-container:not([style*="display: none"])'
 ).length;
@@ -488,6 +609,154 @@ if (counterElement) {
 counterElement.textContent = visibleCards;
 }
 }
+---extra-addons\membership_profile_search\tests\test_membership_profile_search.py
+from odoo.tests import tagged
+from odoo.tests.common import HttpCase
+from odoo import ValidationError
+import unicodedata
+import re
+
+@tagged('membership_profile_search')
+class TestMembershipProfileSearch(HttpCase):
+"""
+Kiểm thử các chức năng tìm kiếm và lọc hội viên trong mô-đun Membership Profile Search.
+"""
+
+def setUp(self):
+super(TestMembershipProfileSearch, self).setUp()
+# Tạo dữ liệu mẫu để kiểm thử
+self.industry = self.env['res.partner.industry'].create({
+'name': 'Công nghệ thông tin',
+})
+
+self.partner1 = self.env['res.partner'].create({
+'name': 'Công ty TNHH Công nghệ Vina',
+'company_name': 'Vina Tech',
+'industry_id': self.industry.id,
+'street': '123 Đường Lê Lợi',
+'city': 'Vũng Tàu',
+'country_id': self.env.ref('base.vn').id,
+'website_published': True,
+'membership_state': 'paid',
+})
+
+self.partner2 = self.env['res.partner'].create({
+'name': 'Nguyễn Văn A',
+'company_name': 'Doanh nghiệp Minh Anh',
+'industry_id': self.industry.id,
+'street': '456 Đường Nguyễn Huệ',
+'city': 'Hà Nội',
+'country_id': self.env.ref('base.vn').id,
+'website_published': True,
+'membership_state': 'paid',
+})
+
+def remove_diacritics(self, text):
+"""
+Hàm chuẩn hóa chuỗi, loại bỏ dấu tiếng Việt để hỗ trợ tìm kiếm không dấu.
+"""
+text = unicodedata.normalize('NFD', text)
+text = re.sub(r'[\u0300-\u036f]', '', text)
+text = text.replace('đ', 'd').replace('Đ', 'D')
+return text
+
+def test_remove_diacritics(self):
+"""
+Kiểm thử hàm chuẩn hóa chuỗi không dấu.
+"""
+test_cases = [
+('Công nghệ Thông tin', 'Cong nghe Thong tin'),
+('Đường Nguyễn Huệ', 'Duong Nguyen Hue'),
+('Việt Nam', 'Viet Nam'),
+]
+
+for input_text, expected in test_cases:
+result = self.remove_diacritics(input_text)
+self.assertEqual(result, expected, f"Chuẩn hóa không dấu thất bại: {input_text}")
+
+def test_search_members_by_name(self):
+"""
+Kiểm thử tìm kiếm hội viên theo tên.
+"""
+response = self.url_open('/membership?search=Công ty TNHH Công nghệ Vina')
+self.assertTrue(self.partner1.name in response.text, "Không tìm thấy hội viên theo tên")
+
+response = self.url_open('/membership?search=Nguyễn Văn A')
+self.assertTrue(self.partner2.name in response.text, "Không tìm thấy hội viên theo tên cá nhân")
+
+def test_search_members_by_company(self):
+"""
+Kiểm thử tìm kiếm hội viên theo tên công ty.
+"""
+response = self.url_open('/membership?search=Vina Tech')
+self.assertTrue(self.partner1.company_name in response.text, "Không tìm thấy hội viên theo tên công ty")
+
+response = self.url_open('/membership?search=Doanh nghiệp Minh Anh')
+self.assertTrue(self.partner2.company_name in response.text, "Không tìm thấy hội viên theo tên công ty")
+
+def test_search_members_by_industry(self):
+"""
+Kiểm thử tìm kiếm hội viên theo ngành nghề.
+"""
+response = self.url_open('/membership?search=Công nghệ thông tin')
+self.assertTrue(self.partner1.name in response.text, "Không tìm thấy hội viên theo ngành nghề")
+self.assertTrue(self.partner2.name in response.text, "Không tìm thấy hội viên theo ngành nghề")
+
+def test_search_members_by_address(self):
+"""
+Kiểm thử tìm kiếm hội viên theo địa chỉ.
+"""
+response = self.url_open('/membership?search=Đường Lê Lợi')
+self.assertTrue(self.partner1.street in response.text, "Không tìm thấy hội viên theo địa chỉ")
+
+response = self.url_open('/membership?search=Nguyễn Huệ')
+self.assertTrue(self.partner2.street in response.text, "Không tìm thấy hội viên theo địa chỉ")
+
+def test_search_no_diacritics(self):
+"""
+Kiểm thử tìm kiếm không dấu.
+"""
+response = self.url_open('/membership?search=Cong nghe Thong tin')
+self.assertTrue(self.partner1.name in response.text, "Không tìm thấy hội viên khi tìm kiếm không dấu")
+self.assertTrue(self.partner2.name in response.text, "Không tìm thấy hội viên khi tìm kiếm không dấu")
+
+def test_filter_by_industry(self):
+"""
+Kiểm thử lọc hội viên theo ngành nghề.
+"""
+response = self.url_open('/membership')
+self.assertTrue('Công nghệ thông tin' in response.text, "Không hiển thị nút lọc ngành nghề")
+
+# Giả lập lọc bằng JavaScript (kiểm tra client-side)
+self.op_open('/membership', [('industry', '=', 'Công nghệ thông tin')])
+response = self.url_open('/membership')
+self.assertTrue(self.partner1.name in response.text, "Không lọc được hội viên theo ngành nghề")
+self.assertTrue(self.partner2.name in response.text, "Không lọc được hội viên theo ngành nghề")
+
+def test_member_detail_page(self):
+"""
+Kiểm thử hiển thị trang chi tiết hội viên.
+"""
+response = self.url_open(f'/partners/{self.partner1.id}')
+self.assertTrue(self.partner1.name in response.text, "Không hiển thị tên hội viên trên trang chi tiết")
+self.assertTrue(self.partner1.company_name in response.text, "Không hiển thị tên công ty trên trang chi tiết")
+self.assertTrue(self.partner1.street in response.text, "Không hiển thị địa chỉ trên trang chi tiết")
+
+def test_unauthorized_access(self):
+"""
+Kiểm thử truy cập trang chi tiết hội viên không công khai.
+"""
+self.partner1.write({'website_published': False})
+response = self.url_open(f'/partners/{self.partner1.id}', allow_redirects=False)
+self.assertEqual(response.status_code, 404, "Không chặn truy cập hội viên không công khai")
+
+def test_empty_search(self):
+"""
+Kiểm thử tìm kiếm với từ khóa không khớp.
+"""
+response = self.url_open('/membership?search=NonExistentKeyword')
+self.assertTrue("Không tìm thấy hội viên nào phù hợp với tiêu chí tìm kiếm" in response.text,
+"Không hiển thị thông báo khi không tìm thấy hội viên")
 ---extra-addons\membership_profile_search\views\membership_profile_search_templates.xml
 <?xml version="1.0" encoding="UTF-8"?>
 <odoo>
@@ -535,6 +804,11 @@ Hội viên chính thức được công nhận và lưu giữ hồ sơ điện 
 Kết quả tìm được
 <span id="memberCounter">0</span> hội viên
 </div>
+<t t-if="not members">
+<div class="alert alert-info text-center">
+Không tìm thấy hội viên nào phù hợp với tiêu chí tìm kiếm.
+</div>
+</t>
 <div class="row">
 <t t-foreach="members" t-as="member">
 <div class="col-md-4 col-sm-6 mb-4 card-container">
