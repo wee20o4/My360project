@@ -1,0 +1,9 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_product_periodic_template,product_periodic_template,model_product_periodic_template,base.group_user,1,1,1,1
+access_member_social,member_social,model_member_social,base.group_user,1,1,1,1
+access_membership_committee,membership_committee,model_membership_committee,base.group_user,1,1,1,1
+access_membership_committee_tmp,membership_committee_tmp,model_membership_committee_tmp,base.group_user,1,1,1,1
+access_membership_partner_committee,membership_partner_committee,model_membership_partner_committee,base.group_user,1,1,1,1
+access_membership_resume_line,membership_resume_line,model_membership_resume_line,base.group_user,1,1,1,1
+access_membership_resume_line_type,membership_resume_line_type,model_membership_resume_line_type,base.group_user,1,1,1,0
+access_membership_committee_tmp_type,membership_committee_tmp_type,model_membership_committee_tmp_type,base.group_user,1,1,1,0

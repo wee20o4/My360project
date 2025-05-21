@@ -1,0 +1,20 @@
+<?xml version='1.0' encoding='utf-8'?>
+<odoo>
+    <data>
+        <record id="resume_type_join_committee" model="membership.resume.line.type">
+            <field name="name">Be responsible</field>
+            <field name="sequence">1</field>
+        </record>
+
+        <record id="resume_type_join_membership" model="membership.resume.line.type">
+            <field name="name">Become a membership</field>
+            <field name="sequence">2</field>
+        </record>
+
+        <record id="resume_type_extend_membership" model="membership.resume.line.type">
+            <field name="name">Renew membership</field>
+            <field name="sequence">3</field>
+        </record>
+    </data>
+
+</odoo>

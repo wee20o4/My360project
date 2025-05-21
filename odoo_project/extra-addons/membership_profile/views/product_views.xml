@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="product_template_member_view_form" model="ir.ui.view">
+        <field name="name">product.template.member.view.form.inherit.website_membership</field>
+        <field name="model">product.template</field>
+        <field name="inherit_id" ref="membership.membership_products_form"/>
+        <field name="arch" type="xml">
+            <field name="list_price" position="before">
+                <field name="membership_product_tmp_type" string='Date Type' />
+                <field name="periodic_id"
+                    attrs="{'required': [('membership_product_tmp_type', '=', 'recurring')], 'invisible': [('membership_product_tmp_type', '!=', 'recurring')]}"/>
+            </field>
+            <field name="membership_date_to" position="attributes">
+                <attribute name="required">0</attribute>
+            </field>
+            <field name="membership_date_from" position="attributes">
+                <attribute name="required">0</attribute>
+            </field>
+            <xpath expr="//label[@for='membership_date_from']" position="attributes">
+                <attribute name="attrs">{'invisible': [('membership_product_tmp_type', '=', 'recurring')]}</attribute>
+            </xpath>
+            <xpath expr="//div[@class='o_row']" position="attributes">
+                <attribute name="attrs">{'invisible': [('membership_product_tmp_type', '=', 'recurring')]}</attribute>
+            </xpath>
+        </field>
+    </record>
+</odoo>

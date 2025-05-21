@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo><data>
+    <template id="partner_member_page" name="Member Page">
+    <t t-call="website.layout">
+        <div class="h-100 d-flex flex-column">
+            <!-- Drag/Drop Area -->
+            <t t-set="opt_publice_member_show_social" t-value="is_view_active('membership_profile.opt_publice_member_show_social')"/>
+            <t t-set="opt_publice_member_show_company" t-value="is_view_active('membership_profile.opt_publice_member_show_company')"/>
+            <div id="oe_structure_website_event_location_1" class="oe_structure"/>
+            <section class="o_public_member_index_content">
+                <div id="wrap" class="o_wprofile_wrap mt-0 pb-5 bg-light">
+                    <t t-call="membership_profile.members_page_header"/>
+                    <t t-if="partners">
+                        <t t-call="membership_profile.partners_page_content"/>
+                    </t>
+                </div>
+                <div
+                    class="o_public_member_data_filter_wrapper"
+                    t-att-data-field-filter-member="current_website_filter_member"
+                    t-att-data-field-filter-member-key="current_website_filter_member_key"
+                />
+            </section>
+            <div class="products_pager d-flex justify-content-center pt-5 pb-3">
+                <t t-call="website.pager"/>
+            </div>
+            <t t-if="not partners">
+                <h1 class="display-1 d-flex justify-content-center text-primary pt-5"><i class="fa fa-search fa-fw"/></h1>
+                <h2 class="text-black m-auto">No Member found</h2>
+            </t>
+            <!-- Drag/Drop Area -->
+            <div id="oe_structure_website_event_location_2" class="oe_structure mb-5"/>
+        </div>
+    </t>
+    </template>
+
+    <template id="members_page_header" name="Page Header">
+        <div class="o_public_member_member_header mb-n5 pb-5">
+            <div class="container">
+                <h1 class="py-4 text-white d-inline-block">All Members</h1>
+                <div class="btn-toolbar flex-nowrap align-items-center justify-content-between mb-3">
+                    <!-- search -->
+                    <t t-call="membership_profile.search">
+                        <t t-set="search" t-value="search"/>
+                        <t t-set="_input_classes" t-valuef="border-0 text-bg-light"/>
+                        <t t-set="_form_classes" t-valuef="d-lg-inline d-inline"/>
+                        <t t-set="_submit_classes" t-valuef="btn btn btn-light"/>
+                    </t>
+                    <!-- Grid list option-->
+                    <!--t t-call="website_sale.add_grid_or_list_option" >
+                        <t t-set="_classes" t-valuef="d-flex ms-3"/>
+                        <t t-set="navClass" t-valuef="light"/>
+                    </t-->
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <template id="partners_page_content" name="Page Content">
+        <div class="container mb32">
+            <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3">
+                <div class="col" t-foreach="partners" t-as="partner">
+                    <t t-call="membership_profile.partners_card"></t>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <template id="partners_card" name="Pages Partners">
+        <div class="card w-100 text-center mb-5 border pm_rounded shadow-sm o_wprofile_pointer pm_card">
+            <div class="">
+                <div class="card-body pm_gradient" >
+                    <t t-if="partner.get('parent')">
+                        <div t-attf-class="gap-2 justify-content-sm-center #{(not opt_publice_member_show_company) and 'd-none'}">
+                            <ul class="d-flex list-unstyled mt-auto">
+                                <li class="pe-2">
+                                    <img class="rounded-circle img-fluid border border-primary border-5 bg-white"
+                                        style="width: 64px; height: 64px; object-fit: cover; cursor: pointer;"
+                                        t-att-src="'/web/image/res.partner/%s/avatar_512/' % (partner['parent']['id'])"/>
+                                </li>
+                                <li class="d-flex align-items-center me-3">
+                                    <!-- <span class="fa-fw bg-white me-1"><i class="fa fa-building-o"/></span> -->
+                                    <small class="text-center text-light" t-esc="partner['parent']['name']" />
+                                </li>
+                            </ul>
+                        </div>
+                    </t>
+                    <div class="d-inline-block position-relative" t-attf-onclick="location.href='/partners/members/#{partner['slug']}';">
+                        <img class="rounded-circle img-fluid border border-primary border-5 bg-white"
+                            style="width: 128px; height: 128px; object-fit: cover; cursor: pointer;"
+                            t-att-src="'/web/image/res.partner/%s/avatar_512/' % (partner['id'])"/>
+                    </div>
+                    <h4 class="mt-2 mb-0" t-esc="partner['name']" t-attf-onclick="location.href='/partners/members/#{partner['slug']}';" style="cursor: pointer;"></h4>
+                    <div>
+                        <t t-if="partner['function']">
+                            <strong class="text-muted" t-esc="partner['function']"/>
+                        </t>
+                        <t t-else="">
+                            <strong class="text-muted">(Job position)</strong>
+                        </t>
+                    </div>
+                    <div>
+                        <t t-if="partner['registered_business']">
+                            Registered: <strong class="text-muted" t-esc="partner['registered_business']"/>
+                        </t>
+                        <t t-else="">
+                            Registered: <strong class="text-muted">(Job position)</strong>
+                        </t>
+                    </div>
+                    <span class="badge text-bg-primary fw-normal px-2" t-if="not partner['website_published']">Unpublished</span>
+                </div>
+            </div>
+            <div class="gap-2 d-sm-flex justify-content-sm-center">
+                <div t-attf-class="s_social_media text-center o_not_editable #{(not opt_publice_member_show_social) and 'd-none'}" data-snippet="s_social_media" data-name="Social Media" contenteditable="false">
+                    <t t-if="partner.get('socials')">
+                        <t t-foreach="partner['socials']" t-as="social">
+                            <a t-attf-href="{{ social['link'] }}" t-attf-class="s_social_media_{{social['type']}}" target="_blank">
+                                <i t-attf-class="fa fa-{{ social['type'] }} m-1"/>
+                            </a>
+                        </t>
+                    </t>
+                </div>    
+            </div>
+            <div class="row mx-0 text-nowrap">
+                <div class="col-8">
+                    <div class="col-sm-12 p-2">
+                        <a t-att-data-vcard="partner['vcard']" class="o_onclick_create_vcard w-100 btn border border-3 border-primary pm_rounded">
+                            <i class="fa fa-share-alt text-primary"/>
+                            <span class="text-primary">Save Contact</span>
+                        </a>
+                    </div>
+                    <div class="col-sm-12 p-2">
+                        <a target='_blank' t-attf-href="{{ partner['website'] }}" class="w-100 btn btn-primary pm_rounded">
+                            <i class="fa fa-globe text-white"/>
+                            Go to website
+                        </a>
+                    </div>
+                </div>
+                <div class="col-4 p-2 d-sm-flex justify-content-sm-center">
+                    <div class="border border-1 rounded">
+                    <img width="100%" class="pm_zoom"
+                        t-attf-data-name="{{ partner['name'] }}"
+                        t-attf-src="data:image/png;base64,{{ partner['website_qr'] }}" alt="QR Code"/>
+                    </div>
+                </div>
+            </div>
+            <div class="d-flex flex-row align-items-center p-2">
+                <ul class="d-flex list-unstyled mt-auto">
+                    <li class="d-flex align-items-center me-3">
+                        <span class="bi me-2 pm_location_icon_circle"><i class="fa fa-map-marker"></i></span>
+                        <small t-esc="partner['address']"/>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </template>
+
+    <template id="search" name="Search member">
+        <form action="" method="get" class="navbar-search ms-auto pagination">
+            <t t-call="website.website_search_box" />
+        </form>
+    </template>
+    <template id="opt_publice_member_show_social" inherit_id="membership_profile.partners_page_content" active="True" name="Show social"/>
+    <template id="opt_publice_member_show_company" inherit_id="membership_profile.partners_page_content" active="True" name="Show company"/>
+</data></odoo>

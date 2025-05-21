@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+<template id="s_public_members" name="Membership Snippet">
+    <t t-call="website.s_dynamic_snippet_template">
+        <t t-set="snippet_name" t-value="'s_public_members'"/>
+        <t t-set="snippet_classes" t-value="'s_public_member_snippet s_public_member_snippet_temp1'"/>
+    </t>
+</template>
+
+<!--SNIPPET OPTIONS -->
+
+<template id="s_public_member_options" inherit_id="website.snippet_options">
+    <xpath expr="." position="inside">
+        <t t-call="membership_profile.s_dynamic_member_snippet_options_template">
+            <t t-set="snippet_name" t-value="'public_member_snippet'"/>
+            <t t-set="snippet_selector" t-value="'.s_public_member_snippet'"/>
+        </t>
+    </xpath>
+</template>
+
+<template id="s_dynamic_member_snippet_options_template" inherit_id="website.s_dynamic_snippet_options_template">
+    <xpath expr="//we-select[@data-name='filter_opt']" position="after">
+        <we-many2many t-if="snippet_name == 'public_member_snippet'"
+                      string="Member Tags"
+                      data-name="member_tag_opt"
+                      data-model="res.partner"
+                      data-m2o-field="category_id"
+                      data-domain='[]'
+                      data-limit="10"
+                      data-set-tags=""
+                      data-attribute-name="filterByTagIds"
+                      data-no-preview="true"/>
+        <we-select t-if="snippet_name == 'public_member_snippet'" string="Committee" data-no-preview="true" data-name="committee_id_opt" data-attribute-name="filterByCommitteeId">
+            <we-button data-select-data-attribute="-1">None Committee</we-button>
+            <!-- the committee list will be generated in js -->
+        </we-select>
+    </xpath>
+    <xpath expr="//we-select[@data-name='template_opt']" position="after">
+        <we-select t-if="snippet_name == 'public_member_snippet'" string="Template" 
+                   data-no-widget-refresh="true" data-name="member_template_opt">
+            <we-button data-select-class="s_public_member_snippet_temp1">Template 1</we-button>
+            <we-button data-select-class="s_public_member_snippet_temp2">Template 2</we-button>
+            <we-button data-select-class="s_public_member_snippet_temp3">Template 3</we-button>
+            <we-button data-select-class="s_public_member_snippet_temp4">Template 4</we-button>
+        </we-select>
+        <we-select t-if="snippet_name == 'public_member_snippet'"
+                   string="Hover effect" class="o_we_sublevel_1 o_we_inline"
+                   data-no-widget-refresh="true" data-name="hover_effect_opt">
+            <we-button data-select-class="">None</we-button>
+            <we-button data-select-class="s_member_effect_scale">Scale</we-button>
+        </we-select>
+        <we-select t-if="snippet_name == 'public_member_snippet'"
+                   string="Member Address" class="o_we_sublevel_1 o_we_inline"
+                   data-no-widget-refresh="true" data-name="member_address_opt">
+            <we-button data-select-class="">None</we-button>
+            <we-button data-select-class="s_member_hidden_address">Hidden</we-button>
+        </we-select>
+        <we-checkbox t-if="snippet_name == 'public_member_snippet'"
+            string="Hidden Social" class="o_we_sublevel_1 o_we_inline" data-select-class="s_member_hidden_social" />
+        <we-checkbox t-if="snippet_name == 'public_member_snippet'"
+            string="Hidden Contact" class="o_we_sublevel_1 o_we_inline" data-select-class="s_member_hidden_contact" />
+        <we-checkbox t-if="snippet_name == 'public_member_snippet'"
+            string="Hidden Business" class="o_we_sublevel_1 o_we_inline" data-select-class="s_member_hidden_business" />
+
+        <we-checkbox t-if="snippet_name == 'public_member_snippet'"
+            string="Hidden Search bar" class="o_we_sublevel_1 o_we_inline" data-select-class="s_hidden_search_bar" />
+    </xpath>
+</template>
+
+<!--template id="s_public_members_snippets" inherit_id="website.snippets" priority="8">
+    <xpath expr="//div[@id='snippet_effect']//t[@t-snippet][last()]" position="after">
+        <t t-snippet="membership_profile.s_public_members" t-thumbnail="/membership_profile/static/src/img/snippets_thumbs/s_membership_snippet.svg"/>
+    </xpath>
+</template-->
+
+<template id="s_public_members_snippets" inherit_id="website.snippets">
+    <div id="snippet_structure" position="before">
+        <div id="tp_snippet_dynamic" class="o_panel">
+            <div class="o_panel_header">Membership Snippet</div>
+            <div class="o_panel_body">
+                <t t-snippet="membership_profile.s_public_members" t-thumbnail="/membership_profile/static/src/img/snippets_thumbs/s_membership_snippet.svg"/>
+            </div>
+        </div>
+    </div>
+</template>
+
+<record id="membership_profile.s_public_member_000_js" model="ir.asset">
+    <field name="name">Public Member 000 JS</field>
+    <field name="bundle">web.assets_frontend</field>
+    <field name="path">membership_profile/static/src/snippets/s_public_member/000.js</field>
+</record>
+
+<record id="membership_profile.s_public_member_000_xml" model="ir.asset">
+    <field name="name">Public Member snippet 000 XML</field>
+    <field name="bundle">web.assets_frontend</field>
+    <field name="path">membership_profile/static/src/snippets/s_public_member/000.xml</field>
+</record>
+</odoo>

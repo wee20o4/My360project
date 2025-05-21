@@ -1,0 +1,997 @@
+# Translation of Odoo Server.
+# This file contains the translation of the following modules:
+# 	* membership_profile
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Odoo Server 16.0+e-20250218\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-03-09 10:10+0000\n"
+"PO-Revision-Date: 2025-03-09 10:10+0000\n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: \n"
+"Plural-Forms: \n"
+
+#. module: membership_profile
+#. odoo-javascript
+#: code:addons/membership_profile/static/src/js/zoom.js:0
+#, python-format
+msgid "${name}  Profile"
+msgstr "Hồ sơ của ${name}"
+
+#. module: membership_profile
+#. odoo-python
+#: code:addons/membership_profile/models/membership.py:0
+#, python-format
+msgid "%s become a membership"
+msgstr "%s đã trở thành thành viên"
+
+#. module: membership_profile
+#. odoo-python
+#: code:addons/membership_profile/models/membership.py:0
+#, python-format
+msgid "%s extended membership"
+msgstr "%s đã gia hạn thành viên"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.member_membership_timelime
+msgid "Journey of %s"
+msgstr "Hành trình của %s"
+
+#. module: membership_profile
+#. odoo-javascript
+#: code:addons/membership_profile/static/src/snippets/s_public_member/000.xml:0
+#: code:addons/membership_profile/static/src/snippets/s_public_member/000.xml:0
+#: code:addons/membership_profile/static/src/snippets/s_public_member/000.xml:0
+#, python-format
+msgid "(N/A)"
+msgstr "(Không có dữ liệu)"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.user_profile_header
+msgid ""
+"<i class=\"fa fa-globe text-white\"/>\n"
+"                                    <span class=\"d-none d-sm-inline text-white\">Go to website</span>"
+msgstr ""
+"<i class=\"fa fa-globe text-white\"/>\n"
+"                                    <span class=\"d-none d-sm-inline text-white\">Đi đến Website</span>"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.partners_card
+msgid ""
+"<i class=\"fa fa-globe text-white\"/>\n"
+"                            Go to website"
+msgstr ""
+"<i class=\"fa fa-globe text-white\"/>\n"
+"                            Đi đến Website"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.user_profile_header_v2
+msgid ""
+"<i class=\"fa fa-globe\"/>\n"
+"                                <span class=\"d-none d-sm-inline\">Go to website</span>"
+msgstr ""
+"<i class=\"fa fa-globe\"/>\n"
+"                                <span class=\"d-none d-sm-inline\">Đi đến Website</span>"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.user_profile_header
+msgid ""
+"<i class=\"fa fa-share-alt text-primary\"/>\n"
+"                                    <span class=\"d-none d-sm-inline text-primary\">Save Contact</span>"
+msgstr ""
+"<i class=\"fa fa-share-alt text-primary\"/>\n"
+"                                    <span class=\"d-none d-sm-inline text-primary\">Lưu liên hệ</span>"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.partners_card
+msgid ""
+"<i class=\"fa fa-share-alt text-primary\"/>\n"
+"                            <span class=\"text-primary\">Save Contact</span>"
+msgstr ""
+"<i class=\"fa fa-share-alt text-primary\"/>\n"
+"                            <span class=\"text-primary\">Lưu liên hệ</span>"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.user_profile_header_v2
+msgid ""
+"<i class=\"fa fa-share-alt\"/>\n"
+"                                <span class=\"d-none d-sm-inline\">Save Contact</span>"
+msgstr ""
+"<i class=\"fa fa-share-alt\"/>\n"
+"                                <span class=\"d-none d-sm-inline\">Lưu liên hệ</span>"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.partners_card
+msgid "<strong class=\"text-muted\">(Job position)</strong>"
+msgstr "<strong class=\"text-muted\">(Vị trí công việc)</strong>"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.member_profile_about_me
+#: model_terms:ir.ui.view,arch_db:membership_profile.view_partner_published_form
+msgid "About me"
+msgstr "Giới thiệu"
+
+#. module: membership_profile
+#. odoo-python
+#: code:addons/membership_profile/models/res_partner.py:0
+#, python-format
+msgid "All"
+msgstr "Tất cả"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.members_page_header
+msgid "All Members"
+msgstr "Tất cả thành viên"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.view_partner_published_form
+msgid "Business Delegate"
+msgstr "Ngành nghề đại diện"
+
+#. module: membership_profile
+#: model:ir.model.fields.selection,name:membership_profile.selection__membership_resume_line__display_type__certification
+msgid "Certification"
+msgstr "Chứng chỉ"
+
+#. module: membership_profile
+#: model:ir.model.fields.selection,name:membership_profile.selection__membership_resume_line__display_type__classic
+msgid "Classic"
+msgstr "Cổ điển"
+
+#. module: membership_profile
+#. odoo-javascript
+#: code:addons/membership_profile/static/src/snippets/s_public_member/000.xml:0
+#, python-format
+msgid "Close"
+msgstr "Đóng"
+
+#. module: membership_profile
+#: model:ir.model.fields,field_description:membership_profile.field_membership_partner_committee__committee_id
+#: model:ir.ui.menu,name:membership_profile.membeship_committee_menu
+#: model_terms:ir.ui.view,arch_db:membership_profile.membership_committee_template_tree_view
+#: model_terms:ir.ui.view,arch_db:membership_profile.membership_committee_tree_view
+#: model_terms:ir.ui.view,arch_db:membership_profile.s_dynamic_member_snippet_options_template
+msgid "Committee"
+msgstr "Ban Điều Hành"
+
+#. module: membership_profile
+#: model:ir.model.fields,field_description:membership_profile.field_membership_partner_committee__committee_tmp_id
+#: model:ir.ui.menu,name:membership_profile.membeship_committee_tmp_menu
+#: model_terms:ir.ui.view,arch_db:membership_profile.membership_committee_template_view_form
+msgid "Committee Template"
+msgstr "Mẫu Ban Điều Hành"
+
+#. module: membership_profile
+#: model:ir.model,name:membership_profile.model_membership_committee_tmp_type
+msgid "Committee Template Type"
+msgstr "Loại Mẫu Ban Điều Hành"
+
+#. module: membership_profile
+#: model:ir.model.fields,field_description:membership_profile.field_membership_committee_tmp__committee_ids
+#: model:ir.model.fields,field_description:membership_profile.field_res_partner__committee_ids
+#: model:ir.model.fields,field_description:membership_profile.field_res_users__committee_ids
+#: model_terms:ir.ui.view,arch_db:membership_profile.view_partner_published_form
+msgid "Committees"
+msgstr "Các Ban Điều Hành"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.snippet_list_member_options
+msgid "Company member"
+msgstr "Thành viên công ty"
+
+#. module: membership_profile
+#: model:ir.model,name:membership_profile.model_res_partner
+msgid "Contact"
+msgstr "Liên hệ"
+
+#. module: membership_profile
+#: model:ir.model.fields,field_description:membership_profile.field_res_partner__contact_qr
+#: model:ir.model.fields,field_description:membership_profile.field_res_users__contact_qr
+msgid "Contact QR"
+msgstr "Mã QR Liên hệ"
+
+#. module: membership_profile
+#: model:ir.model.fields.selection,name:membership_profile.selection__membership_resume_line__display_type__course
+msgid "Course"
+msgstr "Khóa học"
+
+#. module: membership_profile
+#: model:ir.model.fields,field_description:membership_profile.field_member_social__create_uid
+#: model:ir.model.fields,field_description:membership_profile.field_membership_committee__create_uid
+#: model:ir.model.fields,field_description:membership_profile.field_membership_committee_tmp__create_uid
+#: model:ir.model.fields,field_description:membership_profile.field_membership_committee_tmp_type__create_uid
+#: model:ir.model.fields,field_description:membership_profile.field_membership_partner_committee__create_uid
+#: model:ir.model.fields,field_description:membership_profile.field_membership_resume_line__create_uid
+#: model:ir.model.fields,field_description:membership_profile.field_membership_resume_line_type__create_uid
+#: model:ir.model.fields,field_description:membership_profile.field_product_periodic_template__create_uid
+msgid "Created by"
+msgstr "Được tạo bởi"
+
+#. module: membership_profile
+#: model:ir.model.fields,field_description:membership_profile.field_member_social__create_date
+#: model:ir.model.fields,field_description:membership_profile.field_membership_committee__create_date
+#: model:ir.model.fields,field_description:membership_profile.field_membership_committee_tmp__create_date
+#: model:ir.model.fields,field_description:membership_profile.field_membership_committee_tmp_type__create_date
+#: model:ir.model.fields,field_description:membership_profile.field_membership_partner_committee__create_date
+#: model:ir.model.fields,field_description:membership_profile.field_membership_resume_line__create_date
+#: model:ir.model.fields,field_description:membership_profile.field_membership_resume_line_type__create_date
+#: model:ir.model.fields,field_description:membership_profile.field_product_periodic_template__create_date
+msgid "Created on"
+msgstr "Được tạo vào"
+
+#. module: membership_profile
+#. odoo-python
+#: code:addons/membership_profile/models/res_partner.py:0
+#, python-format
+msgid "Current"
+msgstr "Hiện tại"
+
+#. module: membership_profile
+#. odoo-python
+#: code:addons/membership_profile/models/product.py:0
+#: model:ir.model.fields.selection,name:membership_profile.selection__product_periodic_template__periodicity__daily
+#, python-format
+msgid "Daily"
+msgstr "Hàng ngày"
+
+#. module: membership_profile
+#: model:ir.model.fields,field_description:membership_profile.field_membership_resume_line__date_end
+msgid "Date End"
+msgstr "Ngày kết thúc"
+
+#. module: membership_profile
+#: model:ir.model.fields,field_description:membership_profile.field_membership_resume_line__date_start
+msgid "Date Start"
+msgstr "Ngày bắt đầu"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.product_template_member_view_form
+msgid "Date Type"
+msgstr "Loại ngày"
+
+#. module: membership_profile
+#: model:ir.model.fields,field_description:membership_profile.field_website__default_filter_member
+msgid "Default filter Member"
+msgstr "Bộ lọc mặc định cho Thành viên"
+
+#. module: membership_profile
+#: model:ir.model.fields.selection,name:membership_profile.selection__membership_committee_tmp_type__specific_type__delegate
+msgid "Delegation"
+msgstr "Đại diện"
+
+#. module: membership_profile
+#. odoo-python
+#: code:addons/membership_profile/models/committee.py:0
+#: code:addons/membership_profile/models/committee.py:0
+#: model:ir.model.fields,field_description:membership_profile.field_membership_committee_tmp__description
+#: model:ir.model.fields,field_description:membership_profile.field_membership_partner_committee__description
+#: model:ir.model.fields,field_description:membership_profile.field_membership_resume_line__description
+#, python-format
+msgid "Description"
+msgstr "Mô tả"
+
+#. module: membership_profile
+#: model:ir.model.fields,field_description:membership_profile.field_member_social__display_name
+#: model:ir.model.fields,field_description:membership_profile.field_membership_committee__display_name
+#: model:ir.model.fields,field_description:membership_profile.field_membership_committee_tmp__display_name
+#: model:ir.model.fields,field_description:membership_profile.field_membership_committee_tmp_type__display_name
+#: model:ir.model.fields,field_description:membership_profile.field_membership_partner_committee__display_name
+#: model:ir.model.fields,field_description:membership_profile.field_membership_resume_line__display_name
+#: model:ir.model.fields,field_description:membership_profile.field_membership_resume_line_type__display_name
+#: model:ir.model.fields,field_description:membership_profile.field_product_periodic_template__display_name
+msgid "Display Name"
+msgstr "Tên hiển thị"
+
+#. module: membership_profile
+#: model:ir.model.fields,field_description:membership_profile.field_membership_resume_line__display_type
+msgid "Display Type"
+msgstr "Loại hiển thị"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.partner_page
+msgid "Don't set profile Template yet"
+msgstr "Chưa thiết lập Mẫu hồ sơ"
+
+#. module: membership_profile
+#: model:ir.model.fields.selection,name:membership_profile.selection__product_template__membership_product_tmp_type__duration
+msgid "Duration"
+msgstr "Thời lượng"
+
+#. module: membership_profile
+#: model:ir.model.fields,field_description:membership_profile.field_membership_committee__date_end
+msgid "End Date"
+msgstr "Ngày kết thúc"
+
+#. module: membership_profile
+#: model:ir.model.fields.selection,name:membership_profile.selection__member_social__social_type__facebook
+msgid "Facebook"
+msgstr "Facebook"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.snippet_list_member_options
+msgid "Filter"
+msgstr "Bộ lọc"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.user_profile_header
+msgid "Follow us"
+msgstr "Theo dõi chúng tôi"
+
+#. module: membership_profile
+#: model:ir.model.fields.selection,name:membership_profile.selection__member_social__social_type__github
+msgid "GitHub"
+msgstr "GitHub"
+
+#. module: membership_profile
+#. odoo-javascript
+#: code:addons/membership_profile/static/src/snippets/s_public_member/000.xml:0
+#: code:addons/membership_profile/static/src/snippets/s_public_member/000.xml:0
+#, python-format
+msgid "Go to website"
+msgstr "Đi đến website"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.s_dynamic_member_snippet_options_template
+msgid "Hidden"
+msgstr "Ẩn"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.s_dynamic_member_snippet_options_template
+msgid "Hidden Business"
+msgstr "Ẩn Doanh nghiệp"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.s_dynamic_member_snippet_options_template
+msgid "Hidden Contact"
+msgstr "Ẩn Liên hệ"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.s_dynamic_member_snippet_options_template
+msgid "Hidden Search bar"
+msgstr "Ẩn Thanh tìm kiếm"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.s_dynamic_member_snippet_options_template
+msgid "Hidden Social"
+msgstr "Ẩn Mạng xã hội"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.membership_committee_template_view_form
+msgid "Highlight in Snippet"
+msgstr "Làm nổi bật trong Snippet"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.s_dynamic_member_snippet_options_template
+msgid "Hover effect"
+msgstr "Hiệu ứng khi di chuột"
+
+#. module: membership_profile
+#: model:ir.model.fields,field_description:membership_profile.field_member_social__id
+#: model:ir.model.fields,field_description:membership_profile.field_membership_committee__id
+#: model:ir.model.fields,field_description:membership_profile.field_membership_committee_tmp__id
+#: model:ir.model.fields,field_description:membership_profile.field_membership_committee_tmp_type__id
+#: model:ir.model.fields,field_description:membership_profile.field_membership_partner_committee__id
+#: model:ir.model.fields,field_description:membership_profile.field_membership_resume_line__id
+#: model:ir.model.fields,field_description:membership_profile.field_membership_resume_line_type__id
+#: model:ir.model.fields,field_description:membership_profile.field_product_periodic_template__id
+msgid "ID"
+msgstr "ID"
+
+#. module: membership_profile
+#: model:ir.model,name:membership_profile.model_product_template
+msgid "Inherit Product Template mudule membership"
+msgstr "Sản phẩm"
+
+#. module: membership_profile
+#: model:ir.model.fields.selection,name:membership_profile.selection__member_social__social_type__instagram
+msgid "Instagram"
+msgstr "Instagram"
+
+#. module: membership_profile
+#: model:ir.model.fields,field_description:membership_profile.field_res_partner__is_committee
+#: model:ir.model.fields,field_description:membership_profile.field_res_users__is_committee
+msgid "Is Committee"
+msgstr "Là Ban Điều Hành"
+
+#. module: membership_profile
+#: model:ir.model,name:membership_profile.model_account_move
+msgid "Journal Entry"
+msgstr "Bút toán"
+
+#. module: membership_profile
+#. odoo-javascript
+#: code:addons/membership_profile/static/src/snippets/s_public_member/000.js:0
+#, python-format
+msgid "Không thể tìm thấy kết quả tìm kiếm cho "
+msgstr "Không thể tìm thấy kết quả tìm kiếm cho "
+
+#. module: membership_profile
+#: model:ir.model.fields,field_description:membership_profile.field_member_social____last_update
+#: model:ir.model.fields,field_description:membership_profile.field_membership_committee____last_update
+#: model:ir.model.fields,field_description:membership_profile.field_membership_committee_tmp____last_update
+#: model:ir.model.fields,field_description:membership_profile.field_membership_committee_tmp_type____last_update
+#: model:ir.model.fields,field_description:membership_profile.field_membership_partner_committee____last_update
+#: model:ir.model.fields,field_description:membership_profile.field_membership_resume_line____last_update
+#: model:ir.model.fields,field_description:membership_profile.field_membership_resume_line_type____last_update
+#: model:ir.model.fields,field_description:membership_profile.field_product_periodic_template____last_update
+msgid "Last Modified on"
+msgstr "Sửa đổi lần cuối vào"
+
+#. module: membership_profile
+#: model:ir.model.fields,field_description:membership_profile.field_member_social__write_uid
+#: model:ir.model.fields,field_description:membership_profile.field_membership_committee__write_uid
+#: model:ir.model.fields,field_description:membership_profile.field_membership_committee_tmp__write_uid
+#: model:ir.model.fields,field_description:membership_profile.field_membership_committee_tmp_type__write_uid
+#: model:ir.model.fields,field_description:membership_profile.field_membership_partner_committee__write_uid
+#: model:ir.model.fields,field_description:membership_profile.field_membership_resume_line__write_uid
+#: model:ir.model.fields,field_description:membership_profile.field_membership_resume_line_type__write_uid
+#: model:ir.model.fields,field_description:membership_profile.field_product_periodic_template__write_uid
+msgid "Last Updated by"
+msgstr "Cập nhật lần cuối bởi"
+
+#. module: membership_profile
+#: model:ir.model.fields,field_description:membership_profile.field_member_social__write_date
+#: model:ir.model.fields,field_description:membership_profile.field_membership_committee__write_date
+#: model:ir.model.fields,field_description:membership_profile.field_membership_committee_tmp__write_date
+#: model:ir.model.fields,field_description:membership_profile.field_membership_committee_tmp_type__write_date
+#: model:ir.model.fields,field_description:membership_profile.field_membership_partner_committee__write_date
+#: model:ir.model.fields,field_description:membership_profile.field_membership_resume_line__write_date
+#: model:ir.model.fields,field_description:membership_profile.field_membership_resume_line_type__write_date
+#: model:ir.model.fields,field_description:membership_profile.field_product_periodic_template__write_date
+msgid "Last Updated on"
+msgstr "Cập nhật lần cuối vào"
+
+#. module: membership_profile
+#: model:ir.model.fields,field_description:membership_profile.field_member_social__link
+msgid "Link Social"
+msgstr "Liên kết Mạng xã hội"
+
+#. module: membership_profile
+#: model:ir.model.fields.selection,name:membership_profile.selection__member_social__social_type__linkedin
+msgid "Linked In"
+msgstr "LinkedIn"
+
+#. module: membership_profile
+#. odoo-javascript
+#: code:addons/membership_profile/static/src/snippets/s_public_member/000.js:0
+#, python-format
+msgid "Save Contact"
+msgstr "Lưu liên hệ"
+
+#. module: membership_profile
+#: model:ir.model.fields.selection,name:membership_profile.selection__membership_committee_tmp_type__specific_type__manager
+msgid "Manager"
+msgstr "Quản lý"
+
+#. module: membership_profile
+#: model:ir.model.fields,field_description:membership_profile.field_member_social__partner_id
+#: model:ir.model.fields.selection,name:membership_profile.selection__membership_committee_tmp_type__specific_type__member
+msgid "Member"
+msgstr "Thành viên"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.s_dynamic_member_snippet_options_template
+msgid "Member Address"
+msgstr "Địa chỉ Thành viên"
+
+#. module: membership_profile
+#: model:ir.ui.menu,name:membership_profile.parnter_membeship_committee_tmp_menu
+#: model_terms:ir.ui.view,arch_db:membership_profile.partner_membership_committee_template_tree_view
+msgid "Member Committee List"
+msgstr "Danh sách Ban Điều Hành Thành viên"
+
+#. module: membership_profile
+#: model:ir.ui.menu,name:membership_profile.parnter_membeship_resume_line_menu
+msgid "Member Resume"
+msgstr "Hồ sơ Thành viên"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.partner_membership_resume_line_tree_view
+msgid "Member Resume List"
+msgstr "Danh sách Hồ sơ Thành viên"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.s_dynamic_member_snippet_options_template
+msgid "Member Tags"
+msgstr "Thẻ Thành viên"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.external_snippets
+msgid "Membership"
+msgstr "Tư cách thành viên"
+
+#. module: membership_profile
+#: model:ir.actions.act_window,name:membership_profile.membership_committee_view_action
+msgid "Membership Committee"
+msgstr "Ban Điều Hành Thành viên"
+
+#. module: membership_profile
+#: model:ir.actions.act_window,name:membership_profile.partner_membership_committee_template_view_action
+msgid "Membership Committee List"
+msgstr "Danh sách Ban Điều Hành Thành viên"
+
+#. module: membership_profile
+#: model:ir.actions.act_window,name:membership_profile.membership_committee_template_view_action
+#: model:ir.model,name:membership_profile.model_membership_committee_tmp
+msgid "Membership Committee Template"
+msgstr "Mẫu Ban Điều Hành Thành viên"
+
+#. module: membership_profile
+#: model:ir.model,name:membership_profile.model_membership_committee
+msgid "Membership Committees"
+msgstr "Các Ban Điều Hành Thành viên"
+
+#. module: membership_profile
+#: model:ir.model,name:membership_profile.model_membership_membership_line
+msgid "Membership Line"
+msgstr "Chi tiết thành viên"
+
+#. module: membership_profile
+#: model:ir.model,name:membership_profile.model_membership_partner_committee
+msgid "Membership Partner Committee"
+msgstr "Ban Điều Hành Đối tác Thành viên"
+
+#. module: membership_profile
+#: model:ir.model.fields,field_description:membership_profile.field_product_product__membership_product_tmp_type
+#: model:ir.model.fields,field_description:membership_profile.field_product_template__membership_product_tmp_type
+msgid "Membership Product Tmp Type"
+msgstr "Loại Mẫu Sản phẩm Thành viên"
+
+#. module: membership_profile
+#: model:ir.model.fields,field_description:membership_profile.field_res_partner__membership_resume_ids
+#: model:ir.model.fields,field_description:membership_profile.field_res_users__membership_resume_ids
+#: model_terms:ir.ui.view,arch_db:membership_profile.view_partner_published_form
+msgid "Membership Resume"
+msgstr "Hồ sơ Thành viên"
+
+#. module: membership_profile
+#: model:ir.actions.act_window,name:membership_profile.partner_membership_resume_line_view_action
+msgid "Membership Resume Line"
+msgstr "Chi tiết Hồ sơ Thành viên"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.s_public_members_snippets
+msgid "Membership Snippet"
+msgstr "Snippet Thành viên"
+
+#. module: membership_profile
+#. odoo-python
+#: code:addons/membership_profile/models/product.py:0
+#: model:ir.model.fields,help:membership_profile.field_product_product__membership_product_tmp_type
+#: model:ir.model.fields,help:membership_profile.field_product_template__membership_product_tmp_type
+#, python-format
+msgid "Membership product Template Data type"
+msgstr "Loại dữ liệu Mẫu Sản phẩm Thành viên"
+
+#. module: membership_profile
+#. odoo-python
+#: code:addons/membership_profile/models/product.py:0
+#: model:ir.model.fields.selection,name:membership_profile.selection__product_periodic_template__periodicity__monthly
+#, python-format
+msgid "Monthly"
+msgstr "Hàng tháng"
+
+#. module: membership_profile
+#. odoo-python
+#: code:addons/membership_profile/models/committee.py:0
+#: code:addons/membership_profile/models/committee.py:0
+#: code:addons/membership_profile/models/product.py:0
+#: model:ir.model.fields,field_description:membership_profile.field_membership_committee__name
+#: model:ir.model.fields,field_description:membership_profile.field_membership_committee_tmp__name
+#: model:ir.model.fields,field_description:membership_profile.field_membership_committee_tmp_type__name
+#: model:ir.model.fields,field_description:membership_profile.field_membership_resume_line__name
+#: model:ir.model.fields,field_description:membership_profile.field_membership_resume_line_type__name
+#: model:ir.model.fields,field_description:membership_profile.field_product_periodic_template__name
+#, python-format
+msgid "Name"
+msgstr "Tên"
+
+#. module: membership_profile
+#. odoo-javascript
+#: code:addons/membership_profile/static/src/snippets/s_public_member/000.js:0
+#, python-format
+msgid "Ngành nghề"
+msgstr "Ngành nghề"
+
+#. module: membership_profile
+#. odoo-javascript
+#: code:addons/membership_profile/static/src/snippets/s_public_member/000.xml:0
+#, python-format
+msgid "Nhập tên, tên công ty"
+msgstr "Nhập tên, tên công ty"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.partner_member_page
+msgid "No Member found"
+msgstr "Không tìm thấy thành viên"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.s_dynamic_member_snippet_options_template
+msgid "None"
+msgstr "Không có"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.s_dynamic_member_snippet_options_template
+msgid "None Committee"
+msgstr "Không có Ban Điều Hành"
+
+#. module: membership_profile
+#. odoo-python
+#: code:addons/membership_profile/models/product.py:0
+#: model:ir.model.fields,field_description:membership_profile.field_product_periodic_template__number_periodic
+#, python-format
+msgid "Number of Periodic"
+msgstr "Số chu kỳ"
+
+#. module: membership_profile
+#. odoo-python
+#: code:addons/membership_profile/models/res_partner.py:0
+#, python-format
+msgid "Only usage for Company has many contact"
+msgstr "Chỉ sử dụng cho Công ty có nhiều liên hệ"
+
+#. module: membership_profile
+#. odoo-python
+#: code:addons/membership_profile/models/res_partner.py:0
+#, python-format
+msgid "Only use for Individual membership"
+msgstr "Chỉ sử dụng cho Thành viên cá nhân"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.sub_memu_member
+msgid "Our Members"
+msgstr "Các thành viên"
+
+#. module: membership_profile
+#: model:ir.model.fields,field_description:membership_profile.field_membership_partner_committee__partner_id
+#: model:ir.model.fields,field_description:membership_profile.field_membership_resume_line__partner_id
+msgid "Partner"
+msgstr "Đối tác"
+
+#. module: membership_profile
+#: model:ir.model,name:membership_profile.model_member_social
+msgid "Partner Socials"
+msgstr "Mạng xã hội của Đối tác"
+
+#. module: membership_profile
+#: model:ir.model.fields,field_description:membership_profile.field_product_product__periodic_id
+#: model:ir.model.fields,field_description:membership_profile.field_product_template__periodic_id
+msgid "Periodic"
+msgstr "Chu kỳ"
+
+#. module: membership_profile
+#: model:ir.model.fields,field_description:membership_profile.field_product_periodic_template__periodicity
+msgid "Periodicity"
+msgstr "Tính chu kỳ"
+
+#. module: membership_profile
+#. odoo-python
+#: code:addons/membership_profile/models/product.py:0
+#, python-format
+msgid "Product with type %s required %s and %s"
+msgstr "Sản phẩm với loại %s yêu cầu %s và %s"
+
+#. module: membership_profile
+#. odoo-python
+#: code:addons/membership_profile/models/res_partner.py:0
+#: model:ir.model.fields,field_description:membership_profile.field_res_partner__profile_tmp
+#: model:ir.model.fields,field_description:membership_profile.field_res_users__profile_tmp
+#, python-format
+msgid "Profile Template"
+msgstr "Mẫu Hồ sơ"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.snippet_list_member_options
+msgid "Public Member Page"
+msgstr "Trang Thành viên Công khai"
+
+#. module: membership_profile
+#. odoo-javascript
+#: code:addons/membership_profile/static/src/snippets/s_public_member/000.xml:0
+#: code:addons/membership_profile/static/src/snippets/s_public_member/000.xml:0
+#: model_terms:ir.ui.view,arch_db:membership_profile.partners_card
+#: model_terms:ir.ui.view,arch_db:membership_profile.user_profile_header_v2
+#, python-format
+msgid "QR Code"
+msgstr "Mã QR"
+
+#. module: membership_profile
+#. odoo-python
+#: code:addons/membership_profile/models/product.py:0
+#: model:ir.model.fields.selection,name:membership_profile.selection__product_periodic_template__periodicity__quarterly
+#, python-format
+msgid "Quarterly"
+msgstr "Hàng quý"
+
+#. module: membership_profile
+#: model:ir.model.fields,field_description:membership_profile.field_membership_committee_tmp__raise_in_template
+msgid "Raise In Template"
+msgstr "Nâng cao trong Mẫu"
+
+#. module: membership_profile
+#: model:ir.model.fields.selection,name:membership_profile.selection__product_template__membership_product_tmp_type__recurring
+msgid "Recurring"
+msgstr "Định kỳ"
+
+#. module: membership_profile
+#: model:ir.model,name:membership_profile.model_product_periodic_template
+msgid "Recurring Template Product"
+msgstr "Sản phẩm Mẫu Định kỳ"
+
+#. module: membership_profile
+#: model:ir.actions.server,name:membership_profile.generator_image_qr_info
+msgid "Refresh Image QR code"
+msgstr "Làm mới Mã QR hình ảnh"
+
+#. module: membership_profile
+#. odoo-javascript
+#: code:addons/membership_profile/static/src/snippets/s_public_member/000.xml:0
+#: code:addons/membership_profile/static/src/snippets/s_public_member/000.xml:0
+#: code:addons/membership_profile/static/src/snippets/s_public_member/000.xml:0
+#: code:addons/membership_profile/static/src/snippets/s_public_member/000.xml:0
+#, python-format
+msgid "Registered"
+msgstr "Đã đăng ký"
+
+#. module: membership_profile
+#. odoo-python
+#: code:addons/membership_profile/models/res_partner.py:0
+#: model:ir.model.fields,field_description:membership_profile.field_res_partner__registered_business
+#: model:ir.model.fields,field_description:membership_profile.field_res_users__registered_business
+#, python-format
+msgid "Registered Business"
+msgstr "Doanh nghiệp Đã đăng ký"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.partners_card
+#: model_terms:ir.ui.view,arch_db:membership_profile.user_profile_header
+#: model_terms:ir.ui.view,arch_db:membership_profile.user_profile_header_v2
+msgid "Registered:"
+msgstr "Đã đăng ký:"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.user_profile_header
+msgid "Registered: <span class=\"fw-bold\">(N/A)</span>"
+msgstr "Đã đăng ký: <span class=\"fw-bold\">(Không có)</span>"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.partners_card
+msgid "Registered: <strong class=\"text-muted\">(Job position)</strong>"
+msgstr "Đăng ký BNI: <strong class=\"text-muted\">(Vị trí công việc)</strong>"
+
+#. module: membership_profile
+#: model:ir.model,name:membership_profile.model_membership_resume_line
+msgid "Resume line of an membership"
+msgstr "Dòng hồ sơ của một thành viên"
+
+#. module: membership_profile
+#. odoo-javascript
+#: code:addons/membership_profile/static_sra/snippets/s_public_member/000.xml:0
+#: code:addons/membership_profile/static/src/snippets/s_public_member/000.xml:0
+#, python-format
+msgid "Save Contact"
+msgstr "Lưu liên hệ"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.s_dynamic_member_snippet_options_template
+msgid "Scale"
+msgstr "Tỷ lệ"
+
+#. module: membership_profile
+#. odoo-javascript
+#: code:addons/membership_profile/static/src/snippets/s_public_member/000.xml:0
+#: code:addons/membership_profile/static/src/snippets/s_public_member/000.xml:0
+#, python-format
+msgid "Search"
+msgstr "Tìm kiếm"
+
+#. module: membership_profile
+#: model:ir.model.fields,field_description:membership_profile.field_membership_committee_tmp_type__sequence
+#: model:ir.model.fields,field_description:membership_profile.field_membership_resume_line_type__sequence
+msgid "Sequence"
+msgstr "Trình tự"
+
+#. module: membership_profile
+#: model:ir.model.fields,field_description:membership_profile.field_res_partner__show_journal_committee
+#: model:ir.model.fields,field_description:membership_profile.field_res_users__show_journal_committee
+msgid "Show Journal Committee"
+msgstr "Hiển thị ban điều hành"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.member_membership_timelime
+msgid "Show Your journey"
+msgstr "Hiển thị Hành trình của bạn"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.view_partner_published_form
+msgid "Show membership resume in profile"
+msgstr "Hiển thị hồ sơ thành viên trong hồ sơ"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.snippet_list_member_options
+msgid "Social"
+msgstr "Mạng xã hội"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.view_partner_published_form
+msgid "Social Links"
+msgstr "Liên kết Mạng xã hội"
+
+#. module: membership_profile
+#: model:ir.model.fields,field_description:membership_profile.field_member_social__social_type
+msgid "Social Type"
+msgstr "Loại Mạng xã hội"
+
+#. module: membership_profile
+#: model:ir.model.fields,field_description:membership_profile.field_res_partner__social_ids
+#: model:ir.model.fields,field_description:membership_profile.field_res_users__social_ids
+msgid "Social links"
+msgstr "Các liên kết mạng xã hội"
+
+#. module: membership_profile
+#. odoo-python
+#: code:addons/membership_profile/models/committee.py:0
+#: model:ir.model.fields,field_description:membership_profile.field_membership_committee_tmp_type__specific_type
+#, python-format
+msgid "Specific"
+msgstr "Cụ thể"
+
+#. module: membership_profile
+#: model:ir.model.fields,field_description:membership_profile.field_res_partner__specific_business
+#: model:ir.model.fields,field_description:membership_profile.field_res_users__specific_business
+msgid "Specific Business"
+msgstr "Doanh nghiệp Cụ thể"
+
+#. module: membership_profile
+#: model:ir.model.fields,field_description:membership_profile.field_membership_committee__date_start
+msgid "Start Date"
+msgstr "Ngày bắt đầu"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.s_dynamic_member_snippet_options_template
+msgid "Template"
+msgstr "Mẫu"
+
+#. module: membership_profile
+#: model:ir.model.fields.selection,name:membership_profile.selection__res_partner__profile_tmp__tmp_1
+#: model_terms:ir.ui.view,arch_db:membership_profile.s_dynamic_member_snippet_options_template
+msgid "Template 1"
+msgstr "Mẫu 1"
+
+#. module: membership_profile
+#: model:ir.model.fields.selection,name:membership_profile.selection__res_partner__profile_tmp__tmp_2
+#: model_terms:ir.ui.view,arch_db:membership_profile.s_dynamic_member_snippet_options_template
+msgid "Template 2"
+msgstr "Mẫu 2"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.s_dynamic_member_snippet_options_template
+msgid "Template 3"
+msgstr "Mẫu 3"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.s_dynamic_member_snippet_options_template
+msgid "Template 4"
+msgstr "Mẫu 4"
+
+#. module: membership_profile
+#: model:ir.model.constraint,message:membership_profile.constraint_membership_partner_committee_partner_committee_committee_tmp
+msgid "The combination partner/committee/committe template already exists!"
+msgstr "Sự kết hợp giữa đối tác/ban điều hành/mẫu ban điều hành đã tồn tại!"
+
+#. module: membership_profile
+#: model:ir.model.constraint,message:membership_profile.constraint_membership_committee_tmp_type_committee_tmp_type
+msgid "The combination template name/specific_type already exists!"
+msgstr "Sự kết hợp giữa tên mẫu/loại cụ thể đã tồn tại!"
+
+#. module: membership_profile
+#: model:ir.model.constraint,message:membership_profile.constraint_membership_resume_line_date_check
+msgid "The start date must be anterior to the end date."
+msgstr "Ngày bắt đầu phải trước ngày kết thúc."
+
+#. module: membership_profile
+#: model:ir.model.fields.selection,name:membership_profile.selection__member_social__social_type__tiktok
+msgid "TikTok"
+msgstr "TikTok"
+
+#. module: membership_profile
+#: model:ir.model.fields,field_description:membership_profile.field_membership_committee_tmp__tmp_type_id
+msgid "Tmp Type"
+msgstr "Loại Mẫu"
+
+#. module: membership_profile
+#: model:ir.model.fields.selection,name:membership_profile.selection__member_social__social_type__twitter
+msgid "Twitter"
+msgstr "Twitter"
+
+#. module: membership_profile
+#: model:ir.model.fields,field_description:membership_profile.field_membership_resume_line__line_type_id
+msgid "Type"
+msgstr "Loại"
+
+#. module: membership_profile
+#: model:ir.model,name:membership_profile.model_membership_resume_line_type
+msgid "Type of a resume line"
+msgstr "Loại của một dòng hồ sơ"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.partners_card
+msgid "Unpublished"
+msgstr "Chưa công bố"
+
+#. module: membership_profile
+#. odoo-javascript
+#: code:addons/membership_profile/static/src/snippets/s_public_member/000.xml:0
+#, python-format
+msgid "VIỆT NAM"
+msgstr "Việt Nam"
+
+#. module: membership_profile
+#: model:ir.model.fields,field_description:membership_profile.field_website__value_field_filter_member
+msgid "Value Field Filter Member"
+msgstr "Giá trị Bộ lọc Trường Thành viên"
+
+#. module: membership_profile
+#: model:ir.model.fields,help:membership_profile.field_website__value_field_filter_member
+msgid "Value of field default filter"
+msgstr "Giá trị của bộ lọc mặc định trường"
+
+#. module: membership_profile
+#: model:ir.model.fields,field_description:membership_profile.field_membership_committee_tmp_type__visible
+msgid "Visible"
+msgstr "Hiển thị"
+
+#. module: membership_profile
+#: model:ir.model,name:membership_profile.model_website
+msgid "Website"
+msgstr "Trang web"
+
+#. module: membership_profile
+#: model:ir.model.fields,field_description:membership_profile.field_res_partner__website_qr
+#: model:ir.model.fields,field_description:membership_profile.field_res_users__website_qr
+msgid "Website QR"
+msgstr "Mã QR Trang web"
+
+#. module: membership_profile
+#. odoo-python
+#: code:addons/membership_profile/models/product.py:0
+#: model:ir.model.fields.selection,name:membership_profile.selection__product_periodic_template__periodicity__weekly
+#, python-format
+msgid "Weekly"
+msgstr "Hàng tuần"
+
+#. module: membership_profile
+#. odoo-python
+#: code:addons/membership_profile/models/product.py:0
+#: model:ir.model.fields.selection,name:membership_profile.selection__product_periodic_template__periodicity__yearly
+#, python-format
+msgid "Yearly"
+msgstr "Hàng năm"
+
+#. module: membership_profile
+#: model:ir.model.fields.selection,name:membership_profile.selection__member_social__social_type__youtube
+msgid "YouTube"
+msgstr "YouTube"
+
+#. module: membership_profile
+#: model:ir.model.fields.selection,name:membership_profile.selection__member_social__social_type__zalo
+msgid "Zalo"
+msgstr "Zalo"
+
+#. module: membership_profile
+#. odoo-javascript
+#: code:addons/membership_profile/static/src/snippets/s_public_member/000.xml:0
+#, python-format
+msgid "kết quả)"
+msgstr "kết quả)"
+
+#. module: membership_profile
+#. odoo-javascript
+#: code:addons/membership_profile/static/src/snippets/s_public_member/000.js:0
+#, python-format
+msgid "Đến website"
+msgstr "Đi đến website"

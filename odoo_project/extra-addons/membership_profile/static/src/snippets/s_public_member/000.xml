@@ -1,0 +1,282 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="membership_profile.dynamic_filter_template_public_member_card">
+        <div class="container mb32">
+            <t t-set="colClass" t-value="'d-flex flex-grow-0 flex-shrink-0 col-' + Math.trunc(12 / chunkSize).toString()"/>
+            <t t-set="rowIndexGenerator" t-value="Array.from(Array(Math.ceil(data.length/chunkSize)).keys())"/>
+            <t t-set="colIndexGenerator" t-value="Array.from(Array(chunkSize).keys())"/>
+            <t t-set="opt_publice_member_show_social" t-value="true"/>
+            <t t-set="opt_publice_member_show_company" t-value="true"/>
+            <div class="">
+                <t t-foreach="colIndexGenerator" t-as="colIndex">
+                    <t t-if="(rowIndex * chunkSize + colIndex) &lt; data.length">
+                        <div t-attf-class="#{colClass}">
+                            <t t-out="data[rowIndex * chunkSize + colIndex]"/>
+                        </div>
+                    </t>
+                </t>
+                <!-- RENDER PARTNER -->
+                <t t-if="is_committee_template">
+                    <t t-foreach="data" t-as="partner_data">
+                        <section class="s_heading_1 pt16 pb16">
+                            <div class="container">
+                                <div class="row s_col_no_bgcolor s_nb_column_fixed">
+                                    <div class="col-12 tp-heading-container text-center tp-line-thickness-normal tp-line-width-normal tp-line-bottom">
+                                        <t t-if="partner_data['template_specific'] === 'manager'">
+                                            <h2 class="text-uppercase text-o-color-1 fw-bold mb-3"><t t-esc="partner_data['template_name']" /><strong class="text-o-color-5" t-esc="' ' + committee_name"/></h2>
+                                            <p class="lead mb-0">(<t t-esc="committee_data_start" /> - <t t-esc="committee_data_end" />)</p>
+                                        </t>
+                                        <t t-elif="partner_data['template_specific'] === 'delegate'" >
+                                            <h2 class="text-uppercase text-o-color-1 fw-bold mb-3"><t t-esc="partner_data['template_name']" /><strong class="text-o-color-5">VIỆT NAM</strong> </h2>
+                                        </t>
+                                        <t t-else="">
+                                            <h2 class="text-uppercase text-o-color-1 fw-bold mb-3"><t t-esc="partner_data['template_name']" /></h2>
+                                        </t>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+                        <div class="container mb32">
+                        <div t-attf-class="row justify-content-center #{partner_data['template_specific'] == 'delegate' and 's_public_member_snippet_temp4' or ''}">
+                        <t t-foreach="partner_data['partners']" t-as="partner">
+                        <div t-attf-class="col-lg-4 #{'order-' + partner['committee']['order']}">
+                            <div t-attf-class="card #{partner['committee']['raise_in_tmp'] and 'bg-primary o_raise_tmp_scale' or ''} w-100 text-center mb-5 border pm_rounded shadow-sm o_wprofile_pointer pm_card">
+                                <div class="">
+                                    <div class="card-body pm_gradient" >
+                                        <t t-if="partner['parent']">
+                                            <div t-attf-class="gap-2 justify-content-sm-center s_parent_member">
+                                                <ul class="d-flex list-unstyled mt-auto">
+                                                    <li class="pe-2">
+                                                        <img class="rounded-circle img-fluid border border-primary border-5 bg-white"
+                                                            style="width: 64px; height: 64px; object-fit: cover; cursor: pointer;"
+                                                            t-att-src="'/web/image/res.partner/' + partner['parent']['id'] + '/avatar_512/'"/>
+                                                    </li>
+                                                    <li class="d-flex align-items-center me-3">
+                                                        <small class="text-center text-light" t-esc="partner['parent']['name']" />
+                                                    </li>
+                                                </ul>
+                                            </div>
+                                        </t>
+                                        <div class="d-inline-block position-relative" t-attf-onclick="location.href='/partners/members/#{partner['slug']}/?back_url=#{back_url}';">
+                                            <img class="s_member_avatar"
+                                                t-att-src="'/web/image/res.partner/' + partner['id'] + '/avatar_512/'"/>
+                                        </div>
+
+                                        <div class="mt-2">
+                                            <t t-if="partner['committee']">
+                                            <strong t-attf-class="#{partner['committee']['raise_in_tmp'] and 'badge bg-secondary text-primary' or 'text-primary'} text-uppercase" t-esc="partner['committee']['name']"/>
+                                            </t>
+                                        </div>
+                                        <h4 t-attf-class="mt-2 mb-0 s_member_name #{partner['committee']['raise_in_tmp'] and 'text-black' or ''}"
+                                            t-esc="partner['name']" t-attf-onclick="location.href='/partners/members/#{partner['slug']}/?back_url=#{back_url}';" style="cursor: pointer;"></h4>
+                                        <div class="s_member_business">
+                                            <t t-if="partner['registered_business']">
+                                                <span title="Registered" t-esc="registered_text + ':'" t-attf-class="mt-2 mb-0 #{partner['committee']['raise_in_tmp'] and 'text-black' or ''}" />
+                                                <strong t-attf-class="#{partner['committee']['raise_in_tmp'] and 'text-black' or 'text-muted '}" t-esc="partner['registered_business']"/>
+                                            </t>
+                                            <t t-else="">
+                                                <span title="Registered" t-esc="registered_text + ':'" t-attf-class="mt-2 mb-0 #{partner['committee']['raise_in_tmp'] and 'text-black' or ''}" />
+                                                <strong t-attf-class="#{partner['committee']['raise_in_tmp'] and 'text-black' or 'text-muted '}">(N/A)</strong>
+                                            </t>
+                                        </div>
+                                        <t t-if="partner['parent']">
+                                            <div class="d-none s_second_member_parent">
+                                                <small><p class="text-center text-muted" t-esc="partner['parent']['name']" /></small>
+                                            </div>
+                                        </t>
+                                    </div>
+                                </div>
+                                <div class="gap-2 d-sm-flex justify-content-sm-center">
+                                    <div t-attf-class="s_social_media text-center o_not_editable" data-snippet="s_social_media" data-name="Social Media" contenteditable="false">
+                                        <t t-if="partner['socials']">
+                                            <t t-foreach="partner['socials']" t-as="social">
+                                                <t t-if="!['zalo', 'tiktok'].includes(social['type'])">
+                                                    <a t-attf-href="{{ social['link'] }}" t-attf-class="s_social_media_{{social['type']}}" target="_blank">
+                                                        <i t-attf-class="fa fa-{{ social['type'] }} m-1"/>
+                                                    </a>
+                                                </t>
+                                                <t t-else="">
+                                                    <t t-if="social['type'] === 'zalo'">
+                                                        <a t-attf-href="{{ social['link'] }}" t-attf-class="s_social_media_{{social['type']}}" target="_blank">
+                                                            <img src="/membership_profile/static/src/img/zalo.svg"/>
+                                                        </a>
+                                                    </t>
+                                                    <t t-if="social['type'] === 'tiktok'">
+                                                        <a t-attf-href="{{ social['link'] }}" t-attf-class="s_social_media_{{social['type']}}" target="_blank">
+                                                            <img src="/membership_profile/static/src/img/tiktok.svg"/>
+                                                        </a>
+                                                    </t>
+                                                </t>
+                                            </t>
+                                        </t>
+                                    </div>    
+                                </div>
+                                <div class="row mx-0 text-nowrap s_member_contact">
+                                    <div class="col-8">
+                                        <div class="col-sm-12 p-2">
+                                            <a t-att-data-vcard="partner['vcard']"
+                                                t-attf-class="o_onclick_create_vcard w-100 btn #{partner['committee']['raise_in_tmp'] and 'btn-custom text-o-color-1 bg-o-color-4' or 'border border-3 border-primary'} pm_rounded">
+                                                <i class="fa fa-share-alt text-primary"/>
+                                                <span class="text-primary" title="Save Contact" t-esc="save_contact_text" />
+                                            </a>
+                                        </div>
+                                        <div class="col-sm-12 p-2">
+                                            <a target='_blank' t-attf-href="{{ partner['website'] }}"
+                                                t-attf-class="w-100 btn #{partner['committee']['raise_in_tmp'] and 'btn-custom text-o-color-1 bg-o-color-4' or 'btn-primary'} pm_rounded" title="Go to website">
+                                                <i t-attf-class="fa fa-globe #{partner['committee']['raise_in_tmp'] and 'text-primary' or 'text-white'}"/>
+                                                <t t-esc="go_to_website_text" />
+                                            </a>
+                                        </div>
+                                    </div>
+                                    <div class="col-4 p-2 d-sm-flex justify-content-sm-center">
+                                        <div class="border border-1 rounded">
+                                        <img width="100%" class="pm_zoom"
+                                            t-attf-data-name="{{ partner['name'] }}"
+                                            t-attf-src="data:image/png;base64,{{ partner['website_qr'] }}" alt="QR Code"/>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="d-flex flex-row align-items-center p-2 s_member_address">
+                                    <ul class="d-flex list-unstyled mt-auto">
+                                        <li t-attf-class="d-flex align-items-center me-3 #{partner['committee']['raise_in_tmp'] and 'text-white' or ''}">
+                                            <span class="bi me-2 pm_location_icon_circle"><i class="fa fa-map-marker"></i></span>
+                                            <small t-esc="partner['address']"/>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        </t>
+                        </div>
+                        </div>
+                    </t>
+                </t>
+                <t t-else="">
+                    <div class="mb-5 o_member_search_bar">
+                        <div class="input-group input-group-lg">
+                            <input type="search" name="search" id="member-search-query" class="form-control" placeholder="Nhập tên, tên công ty"/>
+                            <button class="member-search-query btn oe_search_button border border-dark pe-md-5 px-md-5" aria-label="Search" title="Search">
+                                <i class="oi oi-search"/>
+                                <span t-if="search" class="oe_search_found">
+                                    <small>(<t t-out="search_count or 0"/> kết quả)</small>
+                                    <button type="button" class="btn-close o_member_search_close" aria-label="Close"></button>
+                                </span>
+                            </button>
+                        </div>
+                    </div>
+                    <t t-if="not_found"><span t-esc="data[0]['messages']"/></t>
+                    <t t-else="">
+                        <div class="row justify-content-center">
+                        <t t-foreach="data" t-as="partner">
+                            <div class="col-lg-4">
+                                <div class="card w-100 text-center mb-5 border pm_rounded shadow-sm o_wprofile_pointer pm_card">
+                                    <div class="">
+                                        <div class="card-body pm_gradient" >
+                                            <t t-if="partner['parent']">
+                                                <div t-attf-class="gap-2 justify-content-sm-center s_parent_member">
+                                                    <ul class="d-flex list-unstyled mt-auto">
+                                                        <li class="pe-2">
+                                                            <img class="rounded-circle img-fluid border border-primary border-5 bg-white"
+                                                                style="width: 64px; height: 64px; object-fit: cover; cursor: pointer;"
+                                                                t-att-src="'/web/image/res.partner/' + partner['parent']['id'] + '/avatar_512/'"/>
+                                                        </li>
+                                                        <li class="d-flex align-items-center me-3">
+                                                            <small class="text-center text-light" t-esc="partner['parent']['name']" />
+                                                        </li>
+                                                    </ul>
+                                                </div>
+                                            </t>
+                                            <div class="d-inline-block position-relative" t-attf-onclick="location.href='/partners/members/#{partner['slug']}/?back_url=#{back_url}';">
+                                                <img class="s_member_avatar"
+                                                    t-att-src="'/web/image/res.partner/' + partner['id'] + '/avatar_512/'"/>
+                                            </div>
+                                            <h4 class="mt-2 mb-0 s_member_name" t-esc="partner['name']" t-attf-onclick="location.href='/partners/members/#{partner['slug']}/?back_url=#{back_url}';" style="cursor: pointer;"></h4>
+                                            <div class="">
+                                                <t t-if="partner['function']">
+                                                    <strong class="text-muted" t-esc="partner['function']"/>
+                                                </t>
+                                                <t t-else="">
+                                                    <strong class="text-muted">(N/A)</strong>
+                                                </t>
+                                            </div>
+                                            <div class="s_member_business">
+                                                <t t-if="partner['registered_business']">
+                                                    <span title="Registered" t-esc="registered_text" />: <strong class="text-muted" t-esc="partner['registered_business']"/>
+                                                </t>
+                                                <t t-else="">
+                                                    <span title="Registered" t-esc="registered_text" />: <strong class="text-muted">(N/A)</strong>
+                                                </t>
+                                            </div>
+                                            <t t-if="partner['parent']">
+                                                <div class="d-none s_second_member_parent">
+                                                    <small><p class="text-center text-muted" t-esc="partner['parent']['name']" /></small>
+                                                </div>
+                                            </t>
+                                        </div>
+                                    </div>
+                                    <div class="gap-2 d-sm-flex justify-content-sm-center">
+                                        <div t-attf-class="s_social_media text-center o_not_editable" data-snippet="s_social_media" data-name="Social Media" contenteditable="false">
+                                            <t t-if="partner['socials']">
+                                                <t t-foreach="partner['socials']" t-as="social">
+                                                    <t t-if="!['zalo', 'tiktok'].includes(social['type'])">
+                                                        <a t-attf-href="{{ social['link'] }}" t-attf-class="s_social_media_{{social['type']}}" target="_blank">
+                                                            <i t-attf-class="fa fa-{{ social['type'] }} m-1"/>
+                                                        </a>
+                                                    </t>
+                                                    <t t-else="">
+                                                        <t t-if="social['type'] === 'zalo'">
+                                                            <a t-attf-href="{{ social['link'] }}" t-attf-class="s_social_media_{{social['type']}}" target="_blank">
+                                                                <img src="/membership_profile/static/src/img/zalo.svg"/>
+                                                            </a>
+                                                        </t>
+                                                        <t t-if="social['type'] === 'tiktok'">
+                                                            <a t-attf-href="{{ social['link'] }}" t-attf-class="s_social_media_{{social['type']}}" target="_blank">
+                                                                <img src="/membership_profile/static/src/img/tiktok.svg"/>
+                                                            </a>
+                                                        </t>
+                                                    </t>
+                                                </t>
+                                            </t>
+                                        </div>    
+                                    </div>
+                                    <div class="row mx-0 text-nowrap s_member_contact">
+                                        <div class="col-8">
+                                            <div class="col-sm-12 p-2">
+                                                <a t-att-data-vcard="partner['vcard']" class="o_onclick_create_vcard w-100 btn border border-3 border-primary pm_rounded">
+                                                    <i class="fa fa-share-alt text-primary"/>
+                                                    <span class="text-primary" title="Save Contact" t-esc="save_contact_text" />
+                                                </a>
+                                            </div>
+                                            <div class="col-sm-12 p-2">
+                                                <a target='_blank' t-attf-href="{{ partner['website'] }}" class="w-100 btn btn-primary pm_rounded" title="Go to website">
+                                                    <i class="fa fa-globe text-white"/>
+                                                    <t t-esc="go_to_website_text" />
+                                                </a>
+                                            </div>
+                                        </div>
+                                        <div class="col-4 p-2 d-sm-flex justify-content-sm-center">
+                                            <div class="border border-1 rounded">
+                                            <img width="100%" class="pm_zoom"
+                                                t-attf-data-name="{{ partner['name'] }}"
+                                                t-attf-src="data:image/png;base64,{{ partner['website_qr'] }}" alt="QR Code"/>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="d-flex flex-row align-items-center p-2 s_member_address">
+                                        <ul class="d-flex list-unstyled mt-auto">
+                                            <li class="d-flex align-items-center me-3">
+                                                <span class="bi me-2 pm_location_icon_circle"><i class="fa fa-map-marker"></i></span>
+                                                <small t-esc="partner['address']"/>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </t>
+                        </div>
+                    </t>
+                </t>
+            </div>
+        </div>
+    </t>
+</templates>

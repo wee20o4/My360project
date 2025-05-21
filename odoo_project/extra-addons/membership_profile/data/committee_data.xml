@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <!-- TYPE -->
+
+        <record id="committee_template_type1" model="membership.committee.tmp.type">
+            <field name="name">Ban điều hành</field>
+            <field name="sequence">1</field>
+        </record>
+        <record id="committee_template_type2" model="membership.committee.tmp.type">
+            <field name="name">Ban thành viên</field>
+            <field name="sequence">2</field>
+        </record>
+        <record id="committee_template_type3" model="membership.committee.tmp.type">
+            <field name="name">Ban khách mời</field>
+            <field name="sequence">3</field>
+        </record>
+        <record id="committee_template_type4" model="membership.committee.tmp.type">
+            <field name="name">Đại điện</field>
+            <field name="sequence">4</field>
+        </record>
+
+        <!-- TEMPLATE -->
+
+        <record id="committee_template_1" model="membership.committee.tmp">
+            <field name="name">Chủ tịch</field>
+            <field name="raise_in_template">True</field>
+            <field name="tmp_type_id" ref="membership_profile.committee_template_type1"/>
+        </record>
+
+        <record id="committee_template_2" model="membership.committee.tmp">
+            <field name="name">Phó Chủ tịch</field>
+            <field name="tmp_type_id" ref="membership_profile.committee_template_type1"/>
+        </record>
+
+        <record id="committee_template_4" model="membership.committee.tmp">
+            <field name="name">Tổng thư ký</field>
+            <field name="tmp_type_id" ref="membership_profile.committee_template_type1"/>
+        </record>
+
+        <record id="committee_template_3" model="membership.committee.tmp">
+            <field name="name">Trưởng ban điều phối đào tạo</field>
+            <field name="tmp_type_id" ref="membership_profile.committee_template_type2"/>
+        </record>
+
+        <record id="committee_template_5" model="membership.committee.tmp">
+            <field name="name">Trưởng ban xây dụng Chapter</field>
+            <field name="tmp_type_id" ref="membership_profile.committee_template_type2"/>
+        </record>
+
+        <record id="committee_template_6" model="membership.committee.tmp">
+            <field name="name">Trưởng ban định hướng thành viên</field>
+            <field name="tmp_type_id" ref="membership_profile.committee_template_type2"/>
+        </record>
+
+        <record id="committee_template_12" model="membership.committee.tmp">
+            <field name="name">Trưởng ban mối quan hệ thành viên</field>
+            <field name="tmp_type_id" ref="membership_profile.committee_template_type2"/>
+        </record>
+
+        <record id="committee_template_10" model="membership.committee.tmp">
+            <field name="name">Trưởng ban gắn kết thành viên</field>
+            <field name="tmp_type_id" ref="membership_profile.committee_template_type2"/>
+        </record>
+
+        <record id="committee_template_7" model="membership.committee.tmp">
+            <field name="name">Trưởng ban điều phối khách mời</field>
+            <field name="tmp_type_id" ref="membership_profile.committee_template_type3"/>
+        </record>
+
+        <record id="committee_template_8" model="membership.committee.tmp">
+            <field name="name">Trưởng ban chất lượng thành viên</field>
+            <field name="tmp_type_id" ref="membership_profile.committee_template_type3"/>
+        </record>
+
+        <record id="committee_template_9" model="membership.committee.tmp">
+            <field name="name">Trưởng ban đón tiếp khách mời</field>
+            <field name="tmp_type_id" ref="membership_profile.committee_template_type3"/>
+        </record>
+
+        <record id="committee_template_11" model="membership.committee.tmp">
+            <field name="tmp_type_id" ref="membership_profile.committee_template_type3"/>
+            <field name="name">Trưởng ban định hướng khách mời</field>
+        </record>
+
+        <record id="committee_template_13" model="membership.committee.tmp">
+            <field name="name">Trưởng ban hỗ trợ khách mời</field>
+            <field name="tmp_type_id" ref="membership_profile.committee_template_type3"/>
+        </record>
+
+        <record id="committee_template_14" model="membership.committee.tmp">
+            <field name="name">Đại diện</field>
+            <field name="tmp_type_id" ref="membership_profile.committee_template_type4"/>
+        </record>
+
+    </data>
+</odoo>

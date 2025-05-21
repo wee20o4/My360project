@@ -1,0 +1,282 @@
+<?xml version="1.0" ?>
+<odoo><data>
+    <!--Main page-->    
+    <template id="partner_page" name="Profile Page">
+        <t t-call="website.layout">
+            <div id="wrap" class="o_wprofile_wrap mt-0">
+                <div id="oe_structure_website_event_location_1" class="oe_structure"/>
+                <t t-if="partner.profile_tmp == 'tmp_1'">
+                    <t t-call="membership_profile.user_profile_header_v2"/>
+                </t>
+                <t t-elif="partner.profile_tmp == 'tmp_2'">
+                    <t t-call="membership_profile.user_profile_header"/>
+                    <t t-call="membership_profile.member_profile_about_me" />
+                </t>
+                <t t-else="">
+                    Don't set profile Template yet
+                </t>
+                <t t-if="partner.show_journal_committee">
+                    <t t-call="membership_profile.member_membership_timelime" />
+                </t>
+                <t t-call="membership_profile.user_profile_content"/>
+                <div id="oe_structure_website_event_location_2" class="oe_structure mb-5"/>
+            </div>
+        </t>
+    </template>
+
+    <template id="user_profile_header_v2" name="Profile Page Header">
+        <t t-call="membership_profile.sub_memu_member">
+            <t t-set="breadcrumb_back_path" t-value="back_path"/>
+        </t>
+        <div class="container mt-5">
+            <div class="row d-flex justify-content-center">
+                <div class="card p-3 py-4">
+                    
+                    <div class="text-center">
+                        <img class="s_member_avatar_x2 rounded-circle" width="100" t-att-src="'/web/image/res.partner/' + str(partner.id) + '/avatar_512/'"/>
+                    </div>
+                    
+                    <div class="text-center mt-3">
+                        <div t-if="partner.parent_id" >
+                            <span class="bg-secondary p-1 px-4 rounded text-white" t-esc="partner.parent_id.name"/>
+                        </div>
+                        <h3 class="mt-2 mb-0">
+                            <span t-esc="partner.name"/>
+                        </h3>
+                        <div t-if="partner.function" class="lead mb-2">
+                            <i class="fa fa-briefcase fa-fw me-1"/><span class="fw-bold" t-esc="partner.function"/>
+                        </div>
+                        <div t-if="partner.registered_business" class="lead mb-2">
+                            Registered: <span class="fw-bold" t-esc="partner.registered_business"/>
+                        </div>
+                        
+                        <div t-if="partner.website_short_description" class="px-4 mt-1">
+                            <t t-call="membership_profile.member_profile_about_me" />
+                        </div>
+                        <div class="s_social_media text-center o_not_editable" data-snippet="s_social_media" data-name="Social Media" contenteditable="false">
+                            <t t-if="partner.social_ids">
+                                <t t-foreach="partner.social_ids" t-as="social">
+                                    <t t-if="social.social_type not in ['zalo', 'tiktok']">
+                                        <a t-attf-href="{{ social.link }}" t-attf-class="s_social_media_{{ social.social_type }} m-2" target="_blank">
+                                            <i t-attf-class="fa fa-2x fa-{{ social.social_type }} m-1"/>
+                                        </a>
+                                    </t>
+                                    <t t-else="">
+                                        <t t-if="social.social_type == 'zalo'">
+                                            <a t-attf-href="{{ social.link }}" t-attf-class="s_social_media_{{ social.social_type }}_2x m-2" target="_blank">
+                                                <img src="/membership_profile/static/src/img/zalo.svg"/>
+                                            </a>
+                                        </t>
+                                        <t t-elif="social.social_type == 'tiktok'">
+                                            <a t-attf-href="{{ social.link }}" t-attf-class="s_social_media_{{ social.social_type }}_2x m-2" target="_blank">
+                                                <img src="/membership_profile/static/src/img/tiktok.svg"/>
+                                            </a>
+                                        </t>
+                                    </t>
+                                </t>
+                            </t>
+                        </div>
+                        <div class="w-20">
+                            <div>
+                            <img width="100%" class="pm_zoom s_member_avatar border border-1 rounded m-2"
+                                    t-attf-src="data:image/png;base64,{{ partner.contact_qr.decode('utf-8') }}" alt="QR Code"/>
+                            </div>
+                            <a t-att-data-vcard="partner._get_vcard()" class="o_onclick_create_vcard btn btn-outline-primary px-4">
+                                <i class="fa fa-share-alt"/>
+                                <span class="d-none d-sm-inline">Save Contact</span>
+                            </a>
+                            <a target='_blank' t-att-href="partner.website" class="btn btn-primary px-4 ms-3">
+                                <i class="fa fa-globe"/>
+                                <span class="d-none d-sm-inline">Go to website</span>
+                            </a>
+                        </div>
+
+                    </div>
+                    
+                </div>
+            </div>
+            
+        </div>
+    </template>
+
+    <template id="user_profile_header" name="Profile Page Header">
+        <div class="position-relative text-dark bg-secondary ">
+            <t t-call="membership_profile.sub_memu_member">
+                <t t-set="breadcrumb_back_path" t-value="back_path"/>
+            </t>
+            <!-- ==== HEADER ==== -->
+            <div class="container-sm pb-3 pb-md-0 pt-2 pt-md-5">
+                <div class="row">
+                    <!-- ==== Header Left ==== -->
+                    <div class="col-12 col-md-3 col-lg-4justify-content-around">
+                        <div class="shadow bg-body rounded oe_img_bg o_bg_img_center border bg-light pt128 pb128"
+                            t-attf-style="background-image: url(#{website.image_url(partner, 'avatar_512')});"/>
+                    </div>
+                    <!-- ==== Header Right ==== -->
+                    <div class="col-12 col-md-9 col-lg-8 d-flex flex-column">
+                        <div class="d-flex justify-content-between align-items-start mt-3 mt-sm-0">
+                            <h1 class="o_card_people_name">
+                                <span t-esc="partner.name"/>
+                            </h1>
+                            <div class="w-20">
+                                <a t-att-data-vcard="partner._contact_qr_code()" class="o_onclick_create_vcard btn border border-3 border-primary pm_rounded">
+                                    <i class="fa fa-share-alt text-primary"/>
+                                    <span class="d-none d-sm-inline text-primary">Save Contact</span>
+                                </a>
+                                <a target='_blank' t-att-href="partner.website" class="btn btn-primary pm_rounded">
+                                    <i class="fa fa-globe text-white"/>
+                                    <span class="d-none d-sm-inline text-white">Go to website</span>
+                                </a>
+                            </div>
+                        </div>
+                        <div class="d-flex flex-column justify-content-center flex-grow-1 mb-0 mb-md-5">
+                            <div t-if="partner.company_name" class="lead mb-2">
+                                <i class="fa fa-building-o fa-fw me-1"/><span class="fw-bold"> <t t-esc="partner.company_name"/> </span>
+                            </div>
+                            <div t-if="partner.function" class="lead mb-2">
+                                <i class="fa fa-briefcase fa-fw me-1"/><span class="fw-bold"> <t t-esc="partner.function"/></span>
+                            </div>
+                            <div class="lead mb-2">
+                                <i class="fa fa-briefcase fa-fw me-1"/>
+                                <t t-if="partner.registered_business">
+                                    Registered: <span class="fw-bold" t-esc="partner.registered_business"/>
+                                </t>
+                                <t t-else="">
+                                    Registered: <span class="fw-bold">(N/A)</span>
+                                </t>
+                            </div>
+                            <div t-if="partner.parent_id" class="lead mb-2">
+                                <i class="fa fa-building-o fa-fw me-1"/><span class="fw-bold"> <t t-esc="partner.parent_id.name"/> </span>
+                            </div>
+                            <div t-if="partner.parent_id" class="lead mb-2">
+                                <i class="fa fa-map-marker fa-fw me-1" />
+                                <small t-esc="partner._partner_full_address()"/>
+                            </div>
+                            <div class="col-12 pt8 pb8">
+                                <div class="s_social_media text-center o_not_editable" data-snippet="s_social_media" data-name="Social Media" contenteditable="false">
+                                    <t t-if="partner.social_ids">
+                                        <h5 class="s_social_media_title d-none d-sm-inline" contenteditable="true">Follow us</h5>
+                                        <t t-foreach="partner.social_ids" t-as="social">
+                                            <t t-if="social.social_type not in ['zalo', 'tiktok']">
+                                                <a t-attf-href="{{ social.link }}" t-attf-class="s_social_media_{{ social.social_type }} m-2" target="_blank">
+                                                    <i t-attf-class="fa fa-2x fa-{{ social.social_type }} m-1"/>
+                                                </a>
+                                            </t>
+                                            <t t-else="">
+                                                <t t-if="social.social_type == 'zalo'">
+                                                    <a t-attf-href="{{ social.link }}" t-attf-class="s_social_media_{{ social.social_type }}_2x m-2" target="_blank">
+                                                        <img src="/membership_profile/static/src/img/zalo.svg"/>
+                                                    </a>
+                                                </t>
+                                                <t t-elif="social.social_type == 'tiktok'">
+                                                    <a t-attf-href="{{ social.link }}" t-attf-class="s_social_media_{{ social.social_type }}_2x m-2" target="_blank">
+                                                        <img src="/membership_profile/static/src/img/tiktok.svg"/>
+                                                    </a>
+                                                </t>
+                                            </t>
+                                        </t>
+                                    </t>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <template id="member_profile_about_me" name="About Me">
+        <div class="container-sm">
+            <div class="alert alert-primary pt-3 mt-3" role="alert">
+                <button class="btn btn-primary btn-sm d-md-none border" type="button"
+                    data-bs-toggle="collapse"
+                    data-bs-target="#o_wprofile_sidebar_collapse"
+                    aria-expanded="false" aria-controls="o_wprofile_sidebar_collapse">About me</button>
+                <div class="collapse d-md-block" id="o_wprofile_sidebar_collapse">
+                    <div class="">
+                        <t t-raw="partner.website_short_description" />
+                    </div>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <template id="user_profile_content" name="Profile Page Content">
+        <!-- ==== CONTENT ==== -->
+        <div class="container-sm">
+            <t t-if="partner">
+                <div t-field="partner.website_description"/>
+            </t>
+        </div>
+    </template>
+
+    <template id="sub_memu_member" name="Sub Menu layout">
+        <div class="col-lg-5">
+            <ol t-if="not edit_page" class="breadcrumb">
+                <t t-if="breadcrumb_back_path">
+                    <li class="breadcrumb-item"><a t-attf-href="{{ breadcrumb_back_path }}">Our Members</a></li>
+                </t>
+                <t t-else="">
+                    <li class="breadcrumb-item"><a t-attf-href="/">Our Members</a></li>
+                </t>
+                <li class="breadcrumb-item active"><span t-field="partner.display_name"/></li>
+            </ol>
+        </div>
+    </template>
+
+    <template id="member_membership_timelime" name="Timeline Commttees">
+        <section class="s_timeline pt24 pb48 o_not_editable">
+            <div class="container">
+                <div class="row">
+                    <div class="col-xl-8 mx-auto text-center">
+                        <div class="section-title">
+                            <h4 class="o_not_editable">Journey of <t t-esc="partner.name"/></h4>
+                        </div>
+                        <button class="btn btn-primary btn-sm d-md-none border mb-5 o_not_editable" type="button"
+                            data-bs-toggle="collapse"
+                            data-bs-target="#o_wprofile_committee_collapse"
+                            aria-expanded="false" aria-controls="o_wprofile_committee_collapse">Show Your journey</button>
+                    </div>
+                </div>
+            </div>
+            <div class="container s_timeline_line">
+                <div class="collapse d-md-block o_not_editable" id="o_wprofile_committee_collapse">
+                    <t t-foreach="partner._get_membership_resume()" t-as="resume" >
+                        <t t-if="resume['index'] % 2 == 1" >
+                        <div class="s_timeline_row d-block d-md-flex flex-row" data-name="Row">
+                            <div class="s_timeline_date"><span class="bg-white"><b><t t-esc="resume['month_year']"/></b></span></div>
+                            <div class="s_timeline_content d-flex">
+                                <div class="s_timeline_card s_card card bg-white w-100" data-name="Card" data-snippet="s_card">
+                                    <div class="card-body">
+                                        <h4 class="text-uppercase text-primary" t-esc="resume['name']"/>
+                                        <span>(<t t-esc="resume['date_start']" /> - <t t-esc="resume['date_end']" />)</span>
+                                        <span t-esc="resume['description']" />
+                                    </div>
+                                </div>
+                                <i class="fa fa-1x fa-child bg-secondary rounded-circle s_timeline_icon"/>
+                            </div>
+                            <div class="s_timeline_content"/>
+                        </div>
+                        </t>
+                        <t t-else="">
+                        <div class="s_timeline_row d-block d-md-flex flex-row-reverse" data-name="Row">
+                            <div class="s_timeline_date"><span class="bg-white"><b><t t-esc="resume['month_year']"/></b></span></div>
+                            <div class="s_timeline_content d-flex">
+                                <div class="s_timeline_card s_card card bg-white w-100" data-name="Card" data-snippet="s_card">
+                                    <div class="card-body">
+                                        <h4 class="text-uppercase text-primary" t-esc="resume['name']"/>
+                                        <span>(<t t-esc="resume['date_start']" /> - <t t-esc="resume['date_end']" />)</span>
+                                        <span t-esc="resume['description']" />
+                                    </div>
+                                </div>
+                                <i class="fa fa-1x fa-bolt bg-secondary rounded-circle s_timeline_icon"/>
+                            </div>
+                            <div class="s_timeline_content"/>
+                        </div>
+                        </t>
+                    </t>
+                </div>
+            </div>
+        </section>
+    </template>
+</data></odoo>

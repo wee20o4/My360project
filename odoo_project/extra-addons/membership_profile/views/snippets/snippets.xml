@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="snippet_list_member_options" inherit_id="website.snippet_options" name="Member snippet options">
+        <xpath expr="." position="inside">
+            <div data-js="PublicMemberTitleFilter" data-selector="main:has(.o_public_member_index_content)" data-no-check="true" groups="website.group_website_designer" string="Public Member Page"
+                data-target=".o_public_member_data_filter_wrapper">
+                <we-select string="Filter" data-name="filter_public_member">
+                    <t t-foreach="request.env['res.partner']._get_member_member_title_filter()" t-as="query_and_label">
+                        <we-button class="o_we_select_filter_member" t-att-data-select-filter-member="query_and_label[0]"><t t-esc="query_and_label[1]"/></we-button>
+                    </t>
+                </we-select>
+                <we-checkbox string="Social" class="o_we_sublevel_1" data-customize-website-views="membership_profile.opt_publice_member_show_social" data-no-preview="true" data-reload="/"/>
+                <we-checkbox string="Company member" class="o_we_sublevel_1" data-customize-website-views="membership_profile.opt_publice_member_show_company" data-no-preview="true" data-reload="/"/>
+            </div>
+        </xpath>
+    </template>
+    <template id="external_snippets" inherit_id="website.snippets" priority="20">
+        <xpath expr="//div[@id='snippet_effect']/div[hasclass('o_panel_body')]" position="inside">
+            <t t-install="membership" string="Membership" t-thumbnail="/website/static/src/img/snippets_thumbs/s_event_upcoming_snippet.svg"/>
+        </xpath>
+    </template>
+</odoo>
