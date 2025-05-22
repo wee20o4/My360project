@@ -8,6 +8,25 @@ from odoo import http
 from odoo.addons.http_routing.models.ir_http import unslug, slug
 from odoo.http import request
 from odoo.osv import expression
+import re
+import unicodedata
+
+def remove_vietnamese_accents(text):
+    if not text:
+        return text
+    text = unicodedata.normalize('NFD', text)
+    text = ''.join(c for c in text if unicodedata.category(c) != 'Mn')
+    text = unicodedata.normalize('NFC', text)
+    return text.lower()
+def is_fuzzy_match(search_term, text):
+    if not search_term or not text:
+        return False
+    search_term_clean = remove_vietnamese_accents(search_term)
+    text_clean = remove_vietnamese_accents(text)
+    escaped_term = re.escape(search_term_clean)
+    pattern = '.*?'.join(escaped_term)
+    pattern = f'.*{pattern}.*'
+    return bool(re.match(pattern, text_clean, re.IGNORECASE))
 
 _logger = logging.getLogger(__name__)
 
@@ -71,9 +90,8 @@ class WebsitePartnerPublicPage(http.Controller):
     def partners_page(self, page=1, **kwargs):
         Partner = request.env['res.partner']
         dom = [('website_published', '=', True),
-               ('membership_state', 'in', ['paid', 'free', 'invoiced']),
-               ('membership_state', 'in', ['paid', 'free', 'invoiced']),
-               ('parent_id', '!=', False)]
+            ('membership_state', 'in', ['paid', 'free', 'invoiced']),
+            ('parent_id', '!=', False)]
         current_time = datetime.now()
         dom = expression.AND([['&', ('membership_start', '<=', current_time), ('membership_stop', '>=', current_time)], dom])
         current_website = request.env['website'].get_current_website()
@@ -90,20 +108,33 @@ class WebsitePartnerPublicPage(http.Controller):
             'search': search_term,
             'group_by': group_by or 'all',
         }
-        if search_term:
-            dom = expression.AND([['|', ('name', 'ilike', search_term), ('commercial_company_name', 'ilike', search_term)], dom])
 
-        partner_count = Partner.sudo().search_count(dom)
+        # Lấy tất cả partner thỏa mãn domain
+        partners_all = Partner.sudo().search(dom)
+        
+        # Lọc thủ công các partner khớp với search_term bằng fuzzy match
+        if search_term:
+            partners_filtered = []
+            for partner in partners_all:
+                if (is_fuzzy_match(search_term, partner.name) or 
+                    is_fuzzy_match(search_term, partner.commercial_company_name)):
+                    partners_filtered.append(partner)
+        else:
+            partners_filtered = partners_all
+
+        partner_count = len(partners_filtered)
         if partner_count:
             page_count = math.ceil(partner_count / self._partner_per_page)
-            pager = request.website.pager(url="/partners/members", total=partner_count, page=page, step=self._partner_per_page,
-                                          scope=page_count) # if page_count < self._pager_max_pages else self._pager_max_pages)
-            partners = Partner.sudo().search(dom, limit=self._partner_per_page, offset=pager['offset']) # , order='karma DESC')
+            pager = request.website.pager(url="/partners/members", total=partner_count, page=page, 
+                                        step=self._partner_per_page, scope=page_count)
+            # Lấy các bản ghi cho trang hiện tại
+            offset = pager['offset']
+            partners = partners_filtered[offset:offset + self._partner_per_page]
             partner_values = self._prepare_all_partners_values(partners)
         else:
             partner_values = []
             pager = {'page_count': 0}
-            
+
         dict_title_filter = dict(Partner.sudo()._get_member_member_title_filter())
 
         render_values.update({
