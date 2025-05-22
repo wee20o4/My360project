@@ -1,0 +1,4478 @@
+The entire source code of my project has been compressed into a single .txt file, which I will provide. I need you to thoroughly read and analyze the code to identify any potential issues, errors, or inefficiencies. Please do not ask me to verify or check anything related to the code, as what I’m providing is the complete and final version of my codebase and speak VietNamese
+
+---__init__.py
+from . import models
+from . import controllers
+---__manifest__.py
+# -*- coding: utf-8 -*-
+# Part of Odoo. See LICENSE file for full copyright and licensing details.
+
+{
+'name': 'Publishing Members',
+'summary': 'Publishing Members to Public',
+'description': '''
+Show all partner are member, with condition available of membership
+''',
+'category': 'Hidden',
+'depends': ['website_sale', 'membership', 'website_crm_partner_assign', 'hr_skills'],
+'version': '16.0.0.0.4',
+'data': [
+# Security
+'security/ir.model.access.csv',
+# Data
+'data/committee_data.xml',
+'data/membership_resume_type.xml',
+# Views
+# Views Snippet
+'views/snippets/snippets.xml',
+'views/snippets/s_dynamic_snippet_members.xml',
+# View backend
+'views/product_views.xml',
+'views/partner_view.xml',
+# Views Website
+'views/website_partner_detail_templates.xml',
+'views/website_partner_member_templates.xml',
+],
+'assets': {
+'website.assets_wysiwyg': [
+'/membership_profile/static/src/snippets/s_public_member/options.js',
+'/membership_profile/static/src/snippets/s_public_member/000.xml',
+'/membership_profile/static/src/snippets/public_member/options.js',
+],
+'web.assets_frontend': [
+"/membership_profile/static/src/css/style.scss",
+"/membership_profile/static/src/js/vcard.js",
+"/membership_profile/static/src/js/zoom.js",
+"/membership_profile/static/src/snippets/s_public_member/000.js",
+],
+},
+'installable': True,
+'auto_install': False,
+'application': True,
+'license': 'LGPL-3',
+}
+---controllers\main.py
+# -*- coding: utf-8 -*-
+import math
+import logging
+from datetime import datetime
+
+from werkzeug.exceptions import Forbidden, NotFound
+from odoo import http
+from odoo.addons.http_routing.models.ir_http import unslug, slug
+from odoo.http import request
+from odoo.osv import expression
+
+_logger = logging.getLogger(__name__)
+
+
+class WebsitePartnerPublicPage(http.Controller):
+_partner_per_page = 30
+
+def _prepare_all_partners_values(self, partners):
+partner_values = []
+for partner in partners:
+socials = partner.social_ids
+vcard = partner._get_vcard()
+data = {
+'id': partner.id,
+'slug': slug(partner),
+'name': partner.name,
+'phone': partner.phone,
+'email': partner.email,
+'title': partner.title.shortcut,
+'function': partner.function,
+'registered_business': partner.registered_business,
+'company_name': partner.company_id.name,
+'badge_count': 1, #len(user.badge_ids),
+'website': partner.website,
+'website_published': partner.website_published,
+# 'img_data': partner.contact_qr.decode('utf-8'),
+'vcard': vcard,
+'address': partner._partner_full_address(),
+}
+if not partner.website_qr:
+partner._compute_website_qr_code()
+
+data.update({'website_qr': partner.website_qr.decode('utf-8')})
+if partner.parent_id:
+data['parent'] = {'id': partner.parent_id.id, 'name': partner.parent_id.name}
+if not partner.specific_business:
+data['registered_business'] = partner.parent_id.registered_business
+else:
+data['parent'] = dict()
+if socials:
+socials = []
+for social in socials:
+socials.append({'type': social.social_type, 'link': social.link})
+data['socials'] = socials
+else:
+data['socials'] = []
+partner_values.append(data)
+return partner_values
+
+@http.route(['/partners/members', '/partners/members/page/<int:page>'], type='http', auth="user", website=True, csrf=False)
+def view_all_partners_page(self, page=1, **kwargs):
+render_values = self.partners_page(page=page, **kwargs)
+return request.render("membership_profile.partner_member_page", render_values)
+
+@http.route(['/snippets/partners/members', '/snippets/partners/members/page/<int:page>'],
+type='json', auth="public", website=True)
+def snippet_partner(self, page=1, **kwargs):
+render_values = self.partners_page(page=page, filter_title=False, **kwargs)
+return render_values
+
+def partners_page(self, page=1, **kwargs):
+Partner = request.env['res.partner']
+dom = [('website_published', '=', True),
+('membership_state', 'in', ['paid', 'free', 'invoiced']),
+('membership_state', 'in', ['paid', 'free', 'invoiced']),
+('parent_id', '!=', False)]
+current_time = datetime.now()
+dom = expression.AND([['&', ('membership_start', '<=', current_time), ('membership_stop', '>=', current_time)], dom])
+current_website = request.env['website'].get_current_website()
+if kwargs.get("filter_title", True):
+if current_website.value_field_filter_member != 'all':
+cond = ('title.shortcut', 'ilike', current_website.value_field_filter_member)
+dom.append(cond)
+categories = kwargs.get('category_id')
+if categories:
+dom.extend(categories)
+search_term = kwargs.get('search')
+group_by = kwargs.get('group_by', False)
+render_values = {
+'search': search_term,
+'group_by': group_by or 'all',
+}
+if search_term:
+# Mở rộng tìm kiếm cho các trường name, function, registered_business, commercial_company_name, street, city
+dom = expression.AND([[
+'|', '|', '|', '|', '|','|','|',
+('name', 'ilike', search_term),
+('function', 'ilike', search_term),
+('registered_business', 'ilike', search_term),
+('commercial_company_name', 'ilike', search_term),
+('street', 'ilike', search_term),
+('city', 'ilike', search_term),
+('zip', 'ilike', search_term),
+('country_id.name', 'ilike', search_term)
+], dom])
+
+partner_count = Partner.sudo().search_count(dom)
+if partner_count:
+page_count = math.ceil(partner_count / self._partner_per_page)
+pager = request.website.pager(url="/partners/members", total=partner_count, page=page, step=self._partner_per_page,
+scope=page_count)
+partners = Partner.sudo().search(dom, limit=self._partner_per_page, offset=pager['offset'])
+partner_values = self._prepare_all_partners_values(partners)
+else:
+partner_values = []
+pager = {'page_count': 0}
+
+dict_title_filter = dict(Partner.sudo()._get_member_member_title_filter())
+
+render_values.update({
+'partners': partner_values,
+'pager': pager,
+'search_count': partner_count,
+})
+if kwargs.get('filter_title', True):
+render_values.update({
+'current_website_filter_member': dict_title_filter.get(current_website.value_field_filter_member, '/'),
+'current_website_filter_member_key': current_website.value_field_filter_member,
+})
+return render_values
+
+@http.route(['/partners/members/<partner_id>'], type='http', auth="public", website=True)
+def partners_detail(self, partner_id, **post):
+back_url = post.get('back_url', None)
+_, partner_id = unslug(partner_id)
+if partner_id:
+partner_sudo = request.env['res.partner'].sudo().browse(partner_id)
+is_website_restricted_editor = request.env['res.users'].has_group('website.group_website_restricted_editor')
+if partner_sudo.exists() and (partner_sudo.website_published or is_website_restricted_editor):
+values = {
+'main_object': partner_sudo,
+'partner': partner_sudo,
+'edit_page': False,
+'address': partner_sudo._partner_full_address(),
+'back_path': back_url,
+}
+return request.render("membership_profile.partner_page", values)
+return request.not_found()
+
+@http.route(['/website/set-value-filter-member'], type='json', auth='user', website=True)
+def set_value_filter_member(self, **post):
+if not request.env.user.has_group('website.group_website_restricted_editor'):
+raise NotFound()
+website = request.env['website'].get_current_website()
+if 'value_field_filter_member' in post:
+website.write({'value_field_filter_member': post['value_field_filter_member']})
+
+@http.route(['/website/set-show-committee'], type='json', auth='user', website=True)
+def set_show_committee(self, **post):
+if not request.env.user.has_group('website.group_website_restricted_editor'):
+raise NotFound()
+Partner = request.env['res.partner'].sudo()
+if 'partner_id' in post:
+partner = Partner.browse((int(post['partner_id'])))
+partner.set_show_committee()
+
+@http.route(['/snippet/member_committee/', '/snippet/member_committee/<committee_id>/'], type='json', auth="public", website=True)
+def snippet_member_committee(self, committee_id=None, **kwargs):
+if not committee_id:
+committee = request.env['membership.committee'].sudo().search([])
+if len(committee) > 0:
+committee_id = committee[0].id
+else:
+return list()
+
+PartnerCommittee = request.env['membership.partner.committee'].sudo()
+CommitteeType = request.env['membership.committee.tmp.type'].sudo()
+committee = request.env['membership.committee'].sudo().browse(int(committee_id))
+
+committee_types = CommitteeType.search([('visible', '=', True)])
+committee_result = list()
+for cmm_type in committee_types:
+member_committee_type = PartnerCommittee.search(['&', ('committee_id', '=', int(committee_id)), ('committee_tmp_id.tmp_type_id', '=', cmm_type.id)])
+committee_result.append({
+'partners': self.partner_committee_data(member_committee_type),
+'template_name': cmm_type.name,
+'template_specific': cmm_type.specific_type,
+})
+
+result = dict()
+result['data'] = committee_result
+result['committee_name'] = committee.name
+result['committee_data_start'] = committee.date_start.strftime("%d/%m/%Y")
+result['committee_data_end'] = committee.date_end.strftime("%d/%m/%Y")
+return result
+
+def partner_committee_data(self, partner_committees):
+# Raise position in template
+# Because col of row fixed 3
+# Position raise just between, We have 2, 5, 8, ... is the position must raise
+# TODO: Currently, raise level have has only 3 element, order will be wrong if increase element of level raise
+position_raise = 2
+result = list()
+len_committee = len(partner_committees)
+for e, record in enumerate(partner_committees):
+partner = record.partner_id
+partner_data = self._prepare_all_partners_values([partner])[0]
+raise_tmp = record.committee_tmp_id.raise_in_template
+partner_data['committee'] = {
+'name': record.committee_tmp_id.name,
+'description': record.committee_tmp_id.description,
+'raise_in_tmp': raise_tmp,
+}
+if not raise_tmp:
+partner_data['committee'].update({
+'order': 1 if len_committee == 1 else e if e != position_raise else e + 1,
+})
+else:
+partner_data['committee']['order'] = position_raise
+result.append(partner_data)
+
+return result
+
+---controllers\__init__.py
+from .  import main
+---data\committee_data.xml
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+<data noupdate="1">
+<!-- TYPE -->
+
+<record id="committee_template_type1" model="membership.committee.tmp.type">
+<field name="name">Ban điều hành</field>
+<field name="sequence">1</field>
+</record>
+<record id="committee_template_type2" model="membership.committee.tmp.type">
+<field name="name">Ban thành viên</field>
+<field name="sequence">2</field>
+</record>
+<record id="committee_template_type3" model="membership.committee.tmp.type">
+<field name="name">Ban khách mời</field>
+<field name="sequence">3</field>
+</record>
+<record id="committee_template_type4" model="membership.committee.tmp.type">
+<field name="name">Đại điện</field>
+<field name="sequence">4</field>
+</record>
+
+<!-- TEMPLATE -->
+
+<record id="committee_template_1" model="membership.committee.tmp">
+<field name="name">Chủ tịch</field>
+<field name="raise_in_template">True</field>
+<field name="tmp_type_id" ref="membership_profile.committee_template_type1"/>
+</record>
+
+<record id="committee_template_2" model="membership.committee.tmp">
+<field name="name">Phó Chủ tịch</field>
+<field name="tmp_type_id" ref="membership_profile.committee_template_type1"/>
+</record>
+
+<record id="committee_template_4" model="membership.committee.tmp">
+<field name="name">Tổng thư ký</field>
+<field name="tmp_type_id" ref="membership_profile.committee_template_type1"/>
+</record>
+
+<record id="committee_template_3" model="membership.committee.tmp">
+<field name="name">Trưởng ban điều phối đào tạo</field>
+<field name="tmp_type_id" ref="membership_profile.committee_template_type2"/>
+</record>
+
+<record id="committee_template_5" model="membership.committee.tmp">
+<field name="name">Trưởng ban xây dụng Chapter</field>
+<field name="tmp_type_id" ref="membership_profile.committee_template_type2"/>
+</record>
+
+<record id="committee_template_6" model="membership.committee.tmp">
+<field name="name">Trưởng ban định hướng thành viên</field>
+<field name="tmp_type_id" ref="membership_profile.committee_template_type2"/>
+</record>
+
+<record id="committee_template_12" model="membership.committee.tmp">
+<field name="name">Trưởng ban mối quan hệ thành viên</field>
+<field name="tmp_type_id" ref="membership_profile.committee_template_type2"/>
+</record>
+
+<record id="committee_template_10" model="membership.committee.tmp">
+<field name="name">Trưởng ban gắn kết thành viên</field>
+<field name="tmp_type_id" ref="membership_profile.committee_template_type2"/>
+</record>
+
+<record id="committee_template_7" model="membership.committee.tmp">
+<field name="name">Trưởng ban điều phối khách mời</field>
+<field name="tmp_type_id" ref="membership_profile.committee_template_type3"/>
+</record>
+
+<record id="committee_template_8" model="membership.committee.tmp">
+<field name="name">Trưởng ban chất lượng thành viên</field>
+<field name="tmp_type_id" ref="membership_profile.committee_template_type3"/>
+</record>
+
+<record id="committee_template_9" model="membership.committee.tmp">
+<field name="name">Trưởng ban đón tiếp khách mời</field>
+<field name="tmp_type_id" ref="membership_profile.committee_template_type3"/>
+</record>
+
+<record id="committee_template_11" model="membership.committee.tmp">
+<field name="tmp_type_id" ref="membership_profile.committee_template_type3"/>
+<field name="name">Trưởng ban định hướng khách mời</field>
+</record>
+
+<record id="committee_template_13" model="membership.committee.tmp">
+<field name="name">Trưởng ban hỗ trợ khách mời</field>
+<field name="tmp_type_id" ref="membership_profile.committee_template_type3"/>
+</record>
+
+<record id="committee_template_14" model="membership.committee.tmp">
+<field name="name">Đại diện</field>
+<field name="tmp_type_id" ref="membership_profile.committee_template_type4"/>
+</record>
+
+</data>
+</odoo>
+---data\ir_asset.xml
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+<data>
+
+<record id="website_blog.s_latest_posts_000_scss" model="ir.asset">
+<field name="name">Latest posts 000 SCSS</field>
+<field name="bundle">web.assets_frontend</field>
+<field name="path">website_blog/static/src/snippets/s_latest_posts/000.scss</field>
+<field name="active" eval="False"/>
+</record>
+
+</data>
+</odoo>
+---data\membership_resume_type.xml
+<?xml version='1.0' encoding='utf-8'?>
+<odoo>
+<data>
+<record id="resume_type_join_committee" model="membership.resume.line.type">
+<field name="name">Be responsible</field>
+<field name="sequence">1</field>
+</record>
+
+<record id="resume_type_join_membership" model="membership.resume.line.type">
+<field name="name">Become a membership</field>
+<field name="sequence">2</field>
+</record>
+
+<record id="resume_type_extend_membership" model="membership.resume.line.type">
+<field name="name">Renew membership</field>
+<field name="sequence">3</field>
+</record>
+</data>
+
+</odoo>
+---i18n\vi_VN.po
+# Translation of Odoo Server.
+# This file contains the translation of the following modules:
+# 	* membership_profile
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Odoo Server 16.0+e-20250218\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-03-09 10:10+0000\n"
+"PO-Revision-Date: 2025-03-09 10:10+0000\n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: \n"
+"Plural-Forms: \n"
+
+#. module: membership_profile
+#. odoo-javascript
+#: code:addons/membership_profile/static/src/js/zoom.js:0
+#, python-format
+msgid "${name}  Profile"
+msgstr "Hồ sơ của ${name}"
+
+#. module: membership_profile
+#. odoo-python
+#: code:addons/membership_profile/models/membership.py:0
+#, python-format
+msgid "%s become a membership"
+msgstr "%s đã trở thành thành viên"
+
+#. module: membership_profile
+#. odoo-python
+#: code:addons/membership_profile/models/membership.py:0
+#, python-format
+msgid "%s extended membership"
+msgstr "%s đã gia hạn thành viên"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.member_membership_timelime
+msgid "Journey of %s"
+msgstr "Hành trình của %s"
+
+#. module: membership_profile
+#. odoo-javascript
+#: code:addons/membership_profile/static/src/snippets/s_public_member/000.xml:0
+#: code:addons/membership_profile/static/src/snippets/s_public_member/000.xml:0
+#: code:addons/membership_profile/static/src/snippets/s_public_member/000.xml:0
+#, python-format
+msgid "(N/A)"
+msgstr "(Không có dữ liệu)"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.user_profile_header
+msgid ""
+"<i class=\"fa fa-globe text-white\"/>\n"
+"                                    <span class=\"d-none d-sm-inline text-white\">Go to website</span>"
+msgstr ""
+"<i class=\"fa fa-globe text-white\"/>\n"
+"                                    <span class=\"d-none d-sm-inline text-white\">Đi đến Website</span>"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.partners_card
+msgid ""
+"<i class=\"fa fa-globe text-white\"/>\n"
+"                            Go to website"
+msgstr ""
+"<i class=\"fa fa-globe text-white\"/>\n"
+"                            Đi đến Website"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.user_profile_header_v2
+msgid ""
+"<i class=\"fa fa-globe\"/>\n"
+"                                <span class=\"d-none d-sm-inline\">Go to website</span>"
+msgstr ""
+"<i class=\"fa fa-globe\"/>\n"
+"                                <span class=\"d-none d-sm-inline\">Đi đến Website</span>"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.user_profile_header
+msgid ""
+"<i class=\"fa fa-share-alt text-primary\"/>\n"
+"                                    <span class=\"d-none d-sm-inline text-primary\">Save Contact</span>"
+msgstr ""
+"<i class=\"fa fa-share-alt text-primary\"/>\n"
+"                                    <span class=\"d-none d-sm-inline text-primary\">Lưu liên hệ</span>"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.partners_card
+msgid ""
+"<i class=\"fa fa-share-alt text-primary\"/>\n"
+"                            <span class=\"text-primary\">Save Contact</span>"
+msgstr ""
+"<i class=\"fa fa-share-alt text-primary\"/>\n"
+"                            <span class=\"text-primary\">Lưu liên hệ</span>"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.user_profile_header_v2
+msgid ""
+"<i class=\"fa fa-share-alt\"/>\n"
+"                                <span class=\"d-none d-sm-inline\">Save Contact</span>"
+msgstr ""
+"<i class=\"fa fa-share-alt\"/>\n"
+"                                <span class=\"d-none d-sm-inline\">Lưu liên hệ</span>"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.partners_card
+msgid "<strong class=\"text-muted\">(Job position)</strong>"
+msgstr "<strong class=\"text-muted\">(Vị trí công việc)</strong>"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.member_profile_about_me
+#: model_terms:ir.ui.view,arch_db:membership_profile.view_partner_published_form
+msgid "About me"
+msgstr "Giới thiệu"
+
+#. module: membership_profile
+#. odoo-python
+#: code:addons/membership_profile/models/res_partner.py:0
+#, python-format
+msgid "All"
+msgstr "Tất cả"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.members_page_header
+msgid "All Members"
+msgstr "Tất cả thành viên"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.view_partner_published_form
+msgid "Business Delegate"
+msgstr "Ngành nghề đại diện"
+
+#. module: membership_profile
+#: model:ir.model.fields.selection,name:membership_profile.selection__membership_resume_line__display_type__certification
+msgid "Certification"
+msgstr "Chứng chỉ"
+
+#. module: membership_profile
+#: model:ir.model.fields.selection,name:membership_profile.selection__membership_resume_line__display_type__classic
+msgid "Classic"
+msgstr "Cổ điển"
+
+#. module: membership_profile
+#. odoo-javascript
+#: code:addons/membership_profile/static/src/snippets/s_public_member/000.xml:0
+#, python-format
+msgid "Close"
+msgstr "Đóng"
+
+#. module: membership_profile
+#: model:ir.model.fields,field_description:membership_profile.field_membership_partner_committee__committee_id
+#: model:ir.ui.menu,name:membership_profile.membeship_committee_menu
+#: model_terms:ir.ui.view,arch_db:membership_profile.membership_committee_template_tree_view
+#: model_terms:ir.ui.view,arch_db:membership_profile.membership_committee_tree_view
+#: model_terms:ir.ui.view,arch_db:membership_profile.s_dynamic_member_snippet_options_template
+msgid "Committee"
+msgstr "Ban Điều Hành"
+
+#. module: membership_profile
+#: model:ir.model.fields,field_description:membership_profile.field_membership_partner_committee__committee_tmp_id
+#: model:ir.ui.menu,name:membership_profile.membeship_committee_tmp_menu
+#: model_terms:ir.ui.view,arch_db:membership_profile.membership_committee_template_view_form
+msgid "Committee Template"
+msgstr "Mẫu Ban Điều Hành"
+
+#. module: membership_profile
+#: model:ir.model,name:membership_profile.model_membership_committee_tmp_type
+msgid "Committee Template Type"
+msgstr "Loại Mẫu Ban Điều Hành"
+
+#. module: membership_profile
+#: model:ir.model.fields,field_description:membership_profile.field_membership_committee_tmp__committee_ids
+#: model:ir.model.fields,field_description:membership_profile.field_res_partner__committee_ids
+#: model:ir.model.fields,field_description:membership_profile.field_res_users__committee_ids
+#: model_terms:ir.ui.view,arch_db:membership_profile.view_partner_published_form
+msgid "Committees"
+msgstr "Các Ban Điều Hành"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.snippet_list_member_options
+msgid "Company member"
+msgstr "Thành viên công ty"
+
+#. module: membership_profile
+#: model:ir.model,name:membership_profile.model_res_partner
+msgid "Contact"
+msgstr "Liên hệ"
+
+#. module: membership_profile
+#: model:ir.model.fields,field_description:membership_profile.field_res_partner__contact_qr
+#: model:ir.model.fields,field_description:membership_profile.field_res_users__contact_qr
+msgid "Contact QR"
+msgstr "Mã QR Liên hệ"
+
+#. module: membership_profile
+#: model:ir.model.fields.selection,name:membership_profile.selection__membership_resume_line__display_type__course
+msgid "Course"
+msgstr "Khóa học"
+
+#. module: membership_profile
+#: model:ir.model.fields,field_description:membership_profile.field_member_social__create_uid
+#: model:ir.model.fields,field_description:membership_profile.field_membership_committee__create_uid
+#: model:ir.model.fields,field_description:membership_profile.field_membership_committee_tmp__create_uid
+#: model:ir.model.fields,field_description:membership_profile.field_membership_committee_tmp_type__create_uid
+#: model:ir.model.fields,field_description:membership_profile.field_membership_partner_committee__create_uid
+#: model:ir.model.fields,field_description:membership_profile.field_membership_resume_line__create_uid
+#: model:ir.model.fields,field_description:membership_profile.field_membership_resume_line_type__create_uid
+#: model:ir.model.fields,field_description:membership_profile.field_product_periodic_template__create_uid
+msgid "Created by"
+msgstr "Được tạo bởi"
+
+#. module: membership_profile
+#: model:ir.model.fields,field_description:membership_profile.field_member_social__create_date
+#: model:ir.model.fields,field_description:membership_profile.field_membership_committee__create_date
+#: model:ir.model.fields,field_description:membership_profile.field_membership_committee_tmp__create_date
+#: model:ir.model.fields,field_description:membership_profile.field_membership_committee_tmp_type__create_date
+#: model:ir.model.fields,field_description:membership_profile.field_membership_partner_committee__create_date
+#: model:ir.model.fields,field_description:membership_profile.field_membership_resume_line__create_date
+#: model:ir.model.fields,field_description:membership_profile.field_membership_resume_line_type__create_date
+#: model:ir.model.fields,field_description:membership_profile.field_product_periodic_template__create_date
+msgid "Created on"
+msgstr "Được tạo vào"
+
+#. module: membership_profile
+#. odoo-python
+#: code:addons/membership_profile/models/res_partner.py:0
+#, python-format
+msgid "Current"
+msgstr "Hiện tại"
+
+#. module: membership_profile
+#. odoo-python
+#: code:addons/membership_profile/models/product.py:0
+#: model:ir.model.fields.selection,name:membership_profile.selection__product_periodic_template__periodicity__daily
+#, python-format
+msgid "Daily"
+msgstr "Hàng ngày"
+
+#. module: membership_profile
+#: model:ir.model.fields,field_description:membership_profile.field_membership_resume_line__date_end
+msgid "Date End"
+msgstr "Ngày kết thúc"
+
+#. module: membership_profile
+#: model:ir.model.fields,field_description:membership_profile.field_membership_resume_line__date_start
+msgid "Date Start"
+msgstr "Ngày bắt đầu"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.product_template_member_view_form
+msgid "Date Type"
+msgstr "Loại ngày"
+
+#. module: membership_profile
+#: model:ir.model.fields,field_description:membership_profile.field_website__default_filter_member
+msgid "Default filter Member"
+msgstr "Bộ lọc mặc định cho Thành viên"
+
+#. module: membership_profile
+#: model:ir.model.fields.selection,name:membership_profile.selection__membership_committee_tmp_type__specific_type__delegate
+msgid "Delegation"
+msgstr "Đại diện"
+
+#. module: membership_profile
+#. odoo-python
+#: code:addons/membership_profile/models/committee.py:0
+#: code:addons/membership_profile/models/committee.py:0
+#: model:ir.model.fields,field_description:membership_profile.field_membership_committee_tmp__description
+#: model:ir.model.fields,field_description:membership_profile.field_membership_partner_committee__description
+#: model:ir.model.fields,field_description:membership_profile.field_membership_resume_line__description
+#, python-format
+msgid "Description"
+msgstr "Mô tả"
+
+#. module: membership_profile
+#: model:ir.model.fields,field_description:membership_profile.field_member_social__display_name
+#: model:ir.model.fields,field_description:membership_profile.field_membership_committee__display_name
+#: model:ir.model.fields,field_description:membership_profile.field_membership_committee_tmp__display_name
+#: model:ir.model.fields,field_description:membership_profile.field_membership_committee_tmp_type__display_name
+#: model:ir.model.fields,field_description:membership_profile.field_membership_partner_committee__display_name
+#: model:ir.model.fields,field_description:membership_profile.field_membership_resume_line__display_name
+#: model:ir.model.fields,field_description:membership_profile.field_membership_resume_line_type__display_name
+#: model:ir.model.fields,field_description:membership_profile.field_product_periodic_template__display_name
+msgid "Display Name"
+msgstr "Tên hiển thị"
+
+#. module: membership_profile
+#: model:ir.model.fields,field_description:membership_profile.field_membership_resume_line__display_type
+msgid "Display Type"
+msgstr "Loại hiển thị"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.partner_page
+msgid "Don't set profile Template yet"
+msgstr "Chưa thiết lập Mẫu hồ sơ"
+
+#. module: membership_profile
+#: model:ir.model.fields.selection,name:membership_profile.selection__product_template__membership_product_tmp_type__duration
+msgid "Duration"
+msgstr "Thời lượng"
+
+#. module: membership_profile
+#: model:ir.model.fields,field_description:membership_profile.field_membership_committee__date_end
+msgid "End Date"
+msgstr "Ngày kết thúc"
+
+#. module: membership_profile
+#: model:ir.model.fields.selection,name:membership_profile.selection__member_social__social_type__facebook
+msgid "Facebook"
+msgstr "Facebook"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.snippet_list_member_options
+msgid "Filter"
+msgstr "Bộ lọc"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.user_profile_header
+msgid "Follow us"
+msgstr "Theo dõi chúng tôi"
+
+#. module: membership_profile
+#: model:ir.model.fields.selection,name:membership_profile.selection__member_social__social_type__github
+msgid "GitHub"
+msgstr "GitHub"
+
+#. module: membership_profile
+#. odoo-javascript
+#: code:addons/membership_profile/static/src/snippets/s_public_member/000.xml:0
+#: code:addons/membership_profile/static/src/snippets/s_public_member/000.xml:0
+#, python-format
+msgid "Go to website"
+msgstr "Đi đến website"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.s_dynamic_member_snippet_options_template
+msgid "Hidden"
+msgstr "Ẩn"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.s_dynamic_member_snippet_options_template
+msgid "Hidden Business"
+msgstr "Ẩn Doanh nghiệp"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.s_dynamic_member_snippet_options_template
+msgid "Hidden Contact"
+msgstr "Ẩn Liên hệ"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.s_dynamic_member_snippet_options_template
+msgid "Hidden Search bar"
+msgstr "Ẩn Thanh tìm kiếm"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.s_dynamic_member_snippet_options_template
+msgid "Hidden Social"
+msgstr "Ẩn Mạng xã hội"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.membership_committee_template_view_form
+msgid "Highlight in Snippet"
+msgstr "Làm nổi bật trong Snippet"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.s_dynamic_member_snippet_options_template
+msgid "Hover effect"
+msgstr "Hiệu ứng khi di chuột"
+
+#. module: membership_profile
+#: model:ir.model.fields,field_description:membership_profile.field_member_social__id
+#: model:ir.model.fields,field_description:membership_profile.field_membership_committee__id
+#: model:ir.model.fields,field_description:membership_profile.field_membership_committee_tmp__id
+#: model:ir.model.fields,field_description:membership_profile.field_membership_committee_tmp_type__id
+#: model:ir.model.fields,field_description:membership_profile.field_membership_partner_committee__id
+#: model:ir.model.fields,field_description:membership_profile.field_membership_resume_line__id
+#: model:ir.model.fields,field_description:membership_profile.field_membership_resume_line_type__id
+#: model:ir.model.fields,field_description:membership_profile.field_product_periodic_template__id
+msgid "ID"
+msgstr "ID"
+
+#. module: membership_profile
+#: model:ir.model,name:membership_profile.model_product_template
+msgid "Inherit Product Template mudule membership"
+msgstr "Sản phẩm"
+
+#. module: membership_profile
+#: model:ir.model.fields.selection,name:membership_profile.selection__member_social__social_type__instagram
+msgid "Instagram"
+msgstr "Instagram"
+
+#. module: membership_profile
+#: model:ir.model.fields,field_description:membership_profile.field_res_partner__is_committee
+#: model:ir.model.fields,field_description:membership_profile.field_res_users__is_committee
+msgid "Is Committee"
+msgstr "Là Ban Điều Hành"
+
+#. module: membership_profile
+#: model:ir.model,name:membership_profile.model_account_move
+msgid "Journal Entry"
+msgstr "Bút toán"
+
+#. module: membership_profile
+#. odoo-javascript
+#: code:addons/membership_profile/static/src/snippets/s_public_member/000.js:0
+#, python-format
+msgid "Không thể tìm thấy kết quả tìm kiếm cho "
+msgstr "Không thể tìm thấy kết quả tìm kiếm cho "
+
+#. module: membership_profile
+#: model:ir.model.fields,field_description:membership_profile.field_member_social____last_update
+#: model:ir.model.fields,field_description:membership_profile.field_membership_committee____last_update
+#: model:ir.model.fields,field_description:membership_profile.field_membership_committee_tmp____last_update
+#: model:ir.model.fields,field_description:membership_profile.field_membership_committee_tmp_type____last_update
+#: model:ir.model.fields,field_description:membership_profile.field_membership_partner_committee____last_update
+#: model:ir.model.fields,field_description:membership_profile.field_membership_resume_line____last_update
+#: model:ir.model.fields,field_description:membership_profile.field_membership_resume_line_type____last_update
+#: model:ir.model.fields,field_description:membership_profile.field_product_periodic_template____last_update
+msgid "Last Modified on"
+msgstr "Sửa đổi lần cuối vào"
+
+#. module: membership_profile
+#: model:ir.model.fields,field_description:membership_profile.field_member_social__write_uid
+#: model:ir.model.fields,field_description:membership_profile.field_membership_committee__write_uid
+#: model:ir.model.fields,field_description:membership_profile.field_membership_committee_tmp__write_uid
+#: model:ir.model.fields,field_description:membership_profile.field_membership_committee_tmp_type__write_uid
+#: model:ir.model.fields,field_description:membership_profile.field_membership_partner_committee__write_uid
+#: model:ir.model.fields,field_description:membership_profile.field_membership_resume_line__write_uid
+#: model:ir.model.fields,field_description:membership_profile.field_membership_resume_line_type__write_uid
+#: model:ir.model.fields,field_description:membership_profile.field_product_periodic_template__write_uid
+msgid "Last Updated by"
+msgstr "Cập nhật lần cuối bởi"
+
+#. module: membership_profile
+#: model:ir.model.fields,field_description:membership_profile.field_member_social__write_date
+#: model:ir.model.fields,field_description:membership_profile.field_membership_committee__write_date
+#: model:ir.model.fields,field_description:membership_profile.field_membership_committee_tmp__write_date
+#: model:ir.model.fields,field_description:membership_profile.field_membership_committee_tmp_type__write_date
+#: model:ir.model.fields,field_description:membership_profile.field_membership_partner_committee__write_date
+#: model:ir.model.fields,field_description:membership_profile.field_membership_resume_line__write_date
+#: model:ir.model.fields,field_description:membership_profile.field_membership_resume_line_type__write_date
+#: model:ir.model.fields,field_description:membership_profile.field_product_periodic_template__write_date
+msgid "Last Updated on"
+msgstr "Cập nhật lần cuối vào"
+
+#. module: membership_profile
+#: model:ir.model.fields,field_description:membership_profile.field_member_social__link
+msgid "Link Social"
+msgstr "Liên kết Mạng xã hội"
+
+#. module: membership_profile
+#: model:ir.model.fields.selection,name:membership_profile.selection__member_social__social_type__linkedin
+msgid "Linked In"
+msgstr "LinkedIn"
+
+#. module: membership_profile
+#. odoo-javascript
+#: code:addons/membership_profile/static/src/snippets/s_public_member/000.js:0
+#, python-format
+msgid "Save Contact"
+msgstr "Lưu liên hệ"
+
+#. module: membership_profile
+#: model:ir.model.fields.selection,name:membership_profile.selection__membership_committee_tmp_type__specific_type__manager
+msgid "Manager"
+msgstr "Quản lý"
+
+#. module: membership_profile
+#: model:ir.model.fields,field_description:membership_profile.field_member_social__partner_id
+#: model:ir.model.fields.selection,name:membership_profile.selection__membership_committee_tmp_type__specific_type__member
+msgid "Member"
+msgstr "Thành viên"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.s_dynamic_member_snippet_options_template
+msgid "Member Address"
+msgstr "Địa chỉ Thành viên"
+
+#. module: membership_profile
+#: model:ir.ui.menu,name:membership_profile.parnter_membeship_committee_tmp_menu
+#: model_terms:ir.ui.view,arch_db:membership_profile.partner_membership_committee_template_tree_view
+msgid "Member Committee List"
+msgstr "Danh sách Ban Điều Hành Thành viên"
+
+#. module: membership_profile
+#: model:ir.ui.menu,name:membership_profile.parnter_membeship_resume_line_menu
+msgid "Member Resume"
+msgstr "Hồ sơ Thành viên"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.partner_membership_resume_line_tree_view
+msgid "Member Resume List"
+msgstr "Danh sách Hồ sơ Thành viên"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.s_dynamic_member_snippet_options_template
+msgid "Member Tags"
+msgstr "Thẻ Thành viên"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.external_snippets
+msgid "Membership"
+msgstr "Tư cách thành viên"
+
+#. module: membership_profile
+#: model:ir.actions.act_window,name:membership_profile.membership_committee_view_action
+msgid "Membership Committee"
+msgstr "Ban Điều Hành Thành viên"
+
+#. module: membership_profile
+#: model:ir.actions.act_window,name:membership_profile.partner_membership_committee_template_view_action
+msgid "Membership Committee List"
+msgstr "Danh sách Ban Điều Hành Thành viên"
+
+#. module: membership_profile
+#: model:ir.actions.act_window,name:membership_profile.membership_committee_template_view_action
+#: model:ir.model,name:membership_profile.model_membership_committee_tmp
+msgid "Membership Committee Template"
+msgstr "Mẫu Ban Điều Hành Thành viên"
+
+#. module: membership_profile
+#: model:ir.model,name:membership_profile.model_membership_committee
+msgid "Membership Committees"
+msgstr "Các Ban Điều Hành Thành viên"
+
+#. module: membership_profile
+#: model:ir.model,name:membership_profile.model_membership_membership_line
+msgid "Membership Line"
+msgstr "Chi tiết thành viên"
+
+#. module: membership_profile
+#: model:ir.model,name:membership_profile.model_membership_partner_committee
+msgid "Membership Partner Committee"
+msgstr "Ban Điều Hành Đối tác Thành viên"
+
+#. module: membership_profile
+#: model:ir.model.fields,field_description:membership_profile.field_product_product__membership_product_tmp_type
+#: model:ir.model.fields,field_description:membership_profile.field_product_template__membership_product_tmp_type
+msgid "Membership Product Tmp Type"
+msgstr "Loại Mẫu Sản phẩm Thành viên"
+
+#. module: membership_profile
+#: model:ir.model.fields,field_description:membership_profile.field_res_partner__membership_resume_ids
+#: model:ir.model.fields,field_description:membership_profile.field_res_users__membership_resume_ids
+#: model_terms:ir.ui.view,arch_db:membership_profile.view_partner_published_form
+msgid "Membership Resume"
+msgstr "Hồ sơ Thành viên"
+
+#. module: membership_profile
+#: model:ir.actions.act_window,name:membership_profile.partner_membership_resume_line_view_action
+msgid "Membership Resume Line"
+msgstr "Chi tiết Hồ sơ Thành viên"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.s_public_members_snippets
+msgid "Membership Snippet"
+msgstr "Snippet Thành viên"
+
+#. module: membership_profile
+#. odoo-python
+#: code:addons/membership_profile/models/product.py:0
+#: model:ir.model.fields,help:membership_profile.field_product_product__membership_product_tmp_type
+#: model:ir.model.fields,help:membership_profile.field_product_template__membership_product_tmp_type
+#, python-format
+msgid "Membership product Template Data type"
+msgstr "Loại dữ liệu Mẫu Sản phẩm Thành viên"
+
+#. module: membership_profile
+#. odoo-python
+#: code:addons/membership_profile/models/product.py:0
+#: model:ir.model.fields.selection,name:membership_profile.selection__product_periodic_template__periodicity__monthly
+#, python-format
+msgid "Monthly"
+msgstr "Hàng tháng"
+
+#. module: membership_profile
+#. odoo-python
+#: code:addons/membership_profile/models/committee.py:0
+#: code:addons/membership_profile/models/committee.py:0
+#: code:addons/membership_profile/models/product.py:0
+#: model:ir.model.fields,field_description:membership_profile.field_membership_committee__name
+#: model:ir.model.fields,field_description:membership_profile.field_membership_committee_tmp__name
+#: model:ir.model.fields,field_description:membership_profile.field_membership_committee_tmp_type__name
+#: model:ir.model.fields,field_description:membership_profile.field_membership_resume_line__name
+#: model:ir.model.fields,field_description:membership_profile.field_membership_resume_line_type__name
+#: model:ir.model.fields,field_description:membership_profile.field_product_periodic_template__name
+#, python-format
+msgid "Name"
+msgstr "Tên"
+
+#. module: membership_profile
+#. odoo-javascript
+#: code:addons/membership_profile/static/src/snippets/s_public_member/000.js:0
+#, python-format
+msgid "Ngành nghề"
+msgstr "Ngành nghề"
+
+#. module: membership_profile
+#. odoo-javascript
+#: code:addons/membership_profile/static/src/snippets/s_public_member/000.xml:0
+#, python-format
+msgid "Nhập tên, tên công ty"
+msgstr "Nhập tên, tên công ty"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.partner_member_page
+msgid "No Member found"
+msgstr "Không tìm thấy thành viên"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.s_dynamic_member_snippet_options_template
+msgid "None"
+msgstr "Không có"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.s_dynamic_member_snippet_options_template
+msgid "None Committee"
+msgstr "Không có Ban Điều Hành"
+
+#. module: membership_profile
+#. odoo-python
+#: code:addons/membership_profile/models/product.py:0
+#: model:ir.model.fields,field_description:membership_profile.field_product_periodic_template__number_periodic
+#, python-format
+msgid "Number of Periodic"
+msgstr "Số chu kỳ"
+
+#. module: membership_profile
+#. odoo-python
+#: code:addons/membership_profile/models/res_partner.py:0
+#, python-format
+msgid "Only usage for Company has many contact"
+msgstr "Chỉ sử dụng cho Công ty có nhiều liên hệ"
+
+#. module: membership_profile
+#. odoo-python
+#: code:addons/membership_profile/models/res_partner.py:0
+#, python-format
+msgid "Only use for Individual membership"
+msgstr "Chỉ sử dụng cho Thành viên cá nhân"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.sub_memu_member
+msgid "Our Members"
+msgstr "Các thành viên"
+
+#. module: membership_profile
+#: model:ir.model.fields,field_description:membership_profile.field_membership_partner_committee__partner_id
+#: model:ir.model.fields,field_description:membership_profile.field_membership_resume_line__partner_id
+msgid "Partner"
+msgstr "Đối tác"
+
+#. module: membership_profile
+#: model:ir.model,name:membership_profile.model_member_social
+msgid "Partner Socials"
+msgstr "Mạng xã hội của Đối tác"
+
+#. module: membership_profile
+#: model:ir.model.fields,field_description:membership_profile.field_product_product__periodic_id
+#: model:ir.model.fields,field_description:membership_profile.field_product_template__periodic_id
+msgid "Periodic"
+msgstr "Chu kỳ"
+
+#. module: membership_profile
+#: model:ir.model.fields,field_description:membership_profile.field_product_periodic_template__periodicity
+msgid "Periodicity"
+msgstr "Tính chu kỳ"
+
+#. module: membership_profile
+#. odoo-python
+#: code:addons/membership_profile/models/product.py:0
+#, python-format
+msgid "Product with type %s required %s and %s"
+msgstr "Sản phẩm với loại %s yêu cầu %s và %s"
+
+#. module: membership_profile
+#. odoo-python
+#: code:addons/membership_profile/models/res_partner.py:0
+#: model:ir.model.fields,field_description:membership_profile.field_res_partner__profile_tmp
+#: model:ir.model.fields,field_description:membership_profile.field_res_users__profile_tmp
+#, python-format
+msgid "Profile Template"
+msgstr "Mẫu Hồ sơ"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.snippet_list_member_options
+msgid "Public Member Page"
+msgstr "Trang Thành viên Công khai"
+
+#. module: membership_profile
+#. odoo-javascript
+#: code:addons/membership_profile/static/src/snippets/s_public_member/000.xml:0
+#: code:addons/membership_profile/static/src/snippets/s_public_member/000.xml:0
+#: model_terms:ir.ui.view,arch_db:membership_profile.partners_card
+#: model_terms:ir.ui.view,arch_db:membership_profile.user_profile_header_v2
+#, python-format
+msgid "QR Code"
+msgstr "Mã QR"
+
+#. module: membership_profile
+#. odoo-python
+#: code:addons/membership_profile/models/product.py:0
+#: model:ir.model.fields.selection,name:membership_profile.selection__product_periodic_template__periodicity__quarterly
+#, python-format
+msgid "Quarterly"
+msgstr "Hàng quý"
+
+#. module: membership_profile
+#: model:ir.model.fields,field_description:membership_profile.field_membership_committee_tmp__raise_in_template
+msgid "Raise In Template"
+msgstr "Nâng cao trong Mẫu"
+
+#. module: membership_profile
+#: model:ir.model.fields.selection,name:membership_profile.selection__product_template__membership_product_tmp_type__recurring
+msgid "Recurring"
+msgstr "Định kỳ"
+
+#. module: membership_profile
+#: model:ir.model,name:membership_profile.model_product_periodic_template
+msgid "Recurring Template Product"
+msgstr "Sản phẩm Mẫu Định kỳ"
+
+#. module: membership_profile
+#: model:ir.actions.server,name:membership_profile.generator_image_qr_info
+msgid "Refresh Image QR code"
+msgstr "Làm mới Mã QR hình ảnh"
+
+#. module: membership_profile
+#. odoo-javascript
+#: code:addons/membership_profile/static/src/snippets/s_public_member/000.xml:0
+#: code:addons/membership_profile/static/src/snippets/s_public_member/000.xml:0
+#: code:addons/membership_profile/static/src/snippets/s_public_member/000.xml:0
+#: code:addons/membership_profile/static/src/snippets/s_public_member/000.xml:0
+#, python-format
+msgid "Registered"
+msgstr "Đã đăng ký"
+
+#. module: membership_profile
+#. odoo-python
+#: code:addons/membership_profile/models/res_partner.py:0
+#: model:ir.model.fields,field_description:membership_profile.field_res_partner__registered_business
+#: model:ir.model.fields,field_description:membership_profile.field_res_users__registered_business
+#, python-format
+msgid "Registered Business"
+msgstr "Doanh nghiệp Đã đăng ký"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.partners_card
+#: model_terms:ir.ui.view,arch_db:membership_profile.user_profile_header
+#: model_terms:ir.ui.view,arch_db:membership_profile.user_profile_header_v2
+msgid "Registered:"
+msgstr "Đã đăng ký:"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.user_profile_header
+msgid "Registered: <span class=\"fw-bold\">(N/A)</span>"
+msgstr "Đã đăng ký: <span class=\"fw-bold\">(Không có)</span>"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.partners_card
+msgid "Registered: <strong class=\"text-muted\">(Job position)</strong>"
+msgstr "Đăng ký BNI: <strong class=\"text-muted\">(Vị trí công việc)</strong>"
+
+#. module: membership_profile
+#: model:ir.model,name:membership_profile.model_membership_resume_line
+msgid "Resume line of an membership"
+msgstr "Dòng hồ sơ của một thành viên"
+
+#. module: membership_profile
+#. odoo-javascript
+#: code:addons/membership_profile/static_sra/snippets/s_public_member/000.xml:0
+#: code:addons/membership_profile/static/src/snippets/s_public_member/000.xml:0
+#, python-format
+msgid "Save Contact"
+msgstr "Lưu liên hệ"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.s_dynamic_member_snippet_options_template
+msgid "Scale"
+msgstr "Tỷ lệ"
+
+#. module: membership_profile
+#. odoo-javascript
+#: code:addons/membership_profile/static/src/snippets/s_public_member/000.xml:0
+#: code:addons/membership_profile/static/src/snippets/s_public_member/000.xml:0
+#, python-format
+msgid "Search"
+msgstr "Tìm kiếm"
+
+#. module: membership_profile
+#: model:ir.model.fields,field_description:membership_profile.field_membership_committee_tmp_type__sequence
+#: model:ir.model.fields,field_description:membership_profile.field_membership_resume_line_type__sequence
+msgid "Sequence"
+msgstr "Trình tự"
+
+#. module: membership_profile
+#: model:ir.model.fields,field_description:membership_profile.field_res_partner__show_journal_committee
+#: model:ir.model.fields,field_description:membership_profile.field_res_users__show_journal_committee
+msgid "Show Journal Committee"
+msgstr "Hiển thị ban điều hành"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.member_membership_timelime
+msgid "Show Your journey"
+msgstr "Hiển thị Hành trình của bạn"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.view_partner_published_form
+msgid "Show membership resume in profile"
+msgstr "Hiển thị hồ sơ thành viên trong hồ sơ"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.snippet_list_member_options
+msgid "Social"
+msgstr "Mạng xã hội"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.view_partner_published_form
+msgid "Social Links"
+msgstr "Liên kết Mạng xã hội"
+
+#. module: membership_profile
+#: model:ir.model.fields,field_description:membership_profile.field_member_social__social_type
+msgid "Social Type"
+msgstr "Loại Mạng xã hội"
+
+#. module: membership_profile
+#: model:ir.model.fields,field_description:membership_profile.field_res_partner__social_ids
+#: model:ir.model.fields,field_description:membership_profile.field_res_users__social_ids
+msgid "Social links"
+msgstr "Các liên kết mạng xã hội"
+
+#. module: membership_profile
+#. odoo-python
+#: code:addons/membership_profile/models/committee.py:0
+#: model:ir.model.fields,field_description:membership_profile.field_membership_committee_tmp_type__specific_type
+#, python-format
+msgid "Specific"
+msgstr "Cụ thể"
+
+#. module: membership_profile
+#: model:ir.model.fields,field_description:membership_profile.field_res_partner__specific_business
+#: model:ir.model.fields,field_description:membership_profile.field_res_users__specific_business
+msgid "Specific Business"
+msgstr "Doanh nghiệp Cụ thể"
+
+#. module: membership_profile
+#: model:ir.model.fields,field_description:membership_profile.field_membership_committee__date_start
+msgid "Start Date"
+msgstr "Ngày bắt đầu"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.s_dynamic_member_snippet_options_template
+msgid "Template"
+msgstr "Mẫu"
+
+#. module: membership_profile
+#: model:ir.model.fields.selection,name:membership_profile.selection__res_partner__profile_tmp__tmp_1
+#: model_terms:ir.ui.view,arch_db:membership_profile.s_dynamic_member_snippet_options_template
+msgid "Template 1"
+msgstr "Mẫu 1"
+
+#. module: membership_profile
+#: model:ir.model.fields.selection,name:membership_profile.selection__res_partner__profile_tmp__tmp_2
+#: model_terms:ir.ui.view,arch_db:membership_profile.s_dynamic_member_snippet_options_template
+msgid "Template 2"
+msgstr "Mẫu 2"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.s_dynamic_member_snippet_options_template
+msgid "Template 3"
+msgstr "Mẫu 3"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.s_dynamic_member_snippet_options_template
+msgid "Template 4"
+msgstr "Mẫu 4"
+
+#. module: membership_profile
+#: model:ir.model.constraint,message:membership_profile.constraint_membership_partner_committee_partner_committee_committee_tmp
+msgid "The combination partner/committee/committe template already exists!"
+msgstr "Sự kết hợp giữa đối tác/ban điều hành/mẫu ban điều hành đã tồn tại!"
+
+#. module: membership_profile
+#: model:ir.model.constraint,message:membership_profile.constraint_membership_committee_tmp_type_committee_tmp_type
+msgid "The combination template name/specific_type already exists!"
+msgstr "Sự kết hợp giữa tên mẫu/loại cụ thể đã tồn tại!"
+
+#. module: membership_profile
+#: model:ir.model.constraint,message:membership_profile.constraint_membership_resume_line_date_check
+msgid "The start date must be anterior to the end date."
+msgstr "Ngày bắt đầu phải trước ngày kết thúc."
+
+#. module: membership_profile
+#: model:ir.model.fields.selection,name:membership_profile.selection__member_social__social_type__tiktok
+msgid "TikTok"
+msgstr "TikTok"
+
+#. module: membership_profile
+#: model:ir.model.fields,field_description:membership_profile.field_membership_committee_tmp__tmp_type_id
+msgid "Tmp Type"
+msgstr "Loại Mẫu"
+
+#. module: membership_profile
+#: model:ir.model.fields.selection,name:membership_profile.selection__member_social__social_type__twitter
+msgid "Twitter"
+msgstr "Twitter"
+
+#. module: membership_profile
+#: model:ir.model.fields,field_description:membership_profile.field_membership_resume_line__line_type_id
+msgid "Type"
+msgstr "Loại"
+
+#. module: membership_profile
+#: model:ir.model,name:membership_profile.model_membership_resume_line_type
+msgid "Type of a resume line"
+msgstr "Loại của một dòng hồ sơ"
+
+#. module: membership_profile
+#: model_terms:ir.ui.view,arch_db:membership_profile.partners_card
+msgid "Unpublished"
+msgstr "Chưa công bố"
+
+#. module: membership_profile
+#. odoo-javascript
+#: code:addons/membership_profile/static/src/snippets/s_public_member/000.xml:0
+#, python-format
+msgid "VIỆT NAM"
+msgstr "Việt Nam"
+
+#. module: membership_profile
+#: model:ir.model.fields,field_description:membership_profile.field_website__value_field_filter_member
+msgid "Value Field Filter Member"
+msgstr "Giá trị Bộ lọc Trường Thành viên"
+
+#. module: membership_profile
+#: model:ir.model.fields,help:membership_profile.field_website__value_field_filter_member
+msgid "Value of field default filter"
+msgstr "Giá trị của bộ lọc mặc định trường"
+
+#. module: membership_profile
+#: model:ir.model.fields,field_description:membership_profile.field_membership_committee_tmp_type__visible
+msgid "Visible"
+msgstr "Hiển thị"
+
+#. module: membership_profile
+#: model:ir.model,name:membership_profile.model_website
+msgid "Website"
+msgstr "Trang web"
+
+#. module: membership_profile
+#: model:ir.model.fields,field_description:membership_profile.field_res_partner__website_qr
+#: model:ir.model.fields,field_description:membership_profile.field_res_users__website_qr
+msgid "Website QR"
+msgstr "Mã QR Trang web"
+
+#. module: membership_profile
+#. odoo-python
+#: code:addons/membership_profile/models/product.py:0
+#: model:ir.model.fields.selection,name:membership_profile.selection__product_periodic_template__periodicity__weekly
+#, python-format
+msgid "Weekly"
+msgstr "Hàng tuần"
+
+#. module: membership_profile
+#. odoo-python
+#: code:addons/membership_profile/models/product.py:0
+#: model:ir.model.fields.selection,name:membership_profile.selection__product_periodic_template__periodicity__yearly
+#, python-format
+msgid "Yearly"
+msgstr "Hàng năm"
+
+#. module: membership_profile
+#: model:ir.model.fields.selection,name:membership_profile.selection__member_social__social_type__youtube
+msgid "YouTube"
+msgstr "YouTube"
+
+#. module: membership_profile
+#: model:ir.model.fields.selection,name:membership_profile.selection__member_social__social_type__zalo
+msgid "Zalo"
+msgstr "Zalo"
+
+#. module: membership_profile
+#. odoo-javascript
+#: code:addons/membership_profile/static/src/snippets/s_public_member/000.xml:0
+#, python-format
+msgid "kết quả)"
+msgstr "kết quả)"
+
+#. module: membership_profile
+#. odoo-javascript
+#: code:addons/membership_profile/static/src/snippets/s_public_member/000.js:0
+#, python-format
+msgid "Đến website"
+msgstr "Đi đến website"
+---models\committee.py
+import logging
+import datetime
+
+from odoo.exceptions import UserError, ValidationError
+from odoo import api, models, fields, _
+
+_logger = logging.getLogger(__name__)
+
+
+class Committee(models.Model):
+_name = 'membership.committee'
+_description = 'Membership Committees'
+
+name = fields.Char(_('Name'), required=True)
+date_start = fields.Date('Start Date', required=True)
+date_end = fields.Date('End Date', required=True)
+
+
+class CommitteeTemplate(models.Model):
+_name = 'membership.committee.tmp'
+_description = 'Membership Committee Template'
+
+name = fields.Char(_('Name'), required=True)
+description = fields.Char(string=_('Description'))
+committee_ids = fields.Many2many('membership.committee', 'membership_commmittee_template_rel',
+'committee_tmp_id', 'committee_id', string='Committees')
+# TEMPLATE
+tmp_type_id = fields.Many2one('membership.committee.tmp.type', ondelete='restrict', required=True)
+raise_in_template = fields.Boolean(default=False)
+
+
+class CommitteeTemplateType(models.Model):
+_name = 'membership.committee.tmp.type'
+_description = 'Committee Template Type'
+_order = "sequence"
+
+name = fields.Char(required=True)
+specific_type = fields.Selection(
+string=_('Specific'),
+selection=[('manager', 'Manager'),
+('member', 'Member'),
+('delegate', 'Delegation')],
+default='member', required=True)
+visible = fields.Boolean(default=True)
+sequence = fields.Integer('Sequence', default=10)
+
+_sql_constraints = [
+('committee_tmp_type', 'unique (name, specific_type)',
+'The combination template name/specific_type already exists!'),
+]
+
+
+class PartnerMembershipCommittee(models.Model):
+_name = 'membership.partner.committee'
+_description = 'Membership Partner Committee'
+
+partner_id = fields.Many2one('res.partner', 'Partner', copy=False, required=True, ondelete='cascade')
+committee_id = fields.Many2one('membership.committee', 'Committee', copy=False, required=True, ondelete='cascade')
+committee_tmp_id = fields.Many2one('membership.committee.tmp', 'Committee Template', copy=False, required=True, ondelete='cascade')
+
+description = fields.Char(_('Description'))
+
+_sql_constraints = [
+('partner_committee_committee_tmp', 'unique (partner_id, committee_id, committee_tmp_id)',
+'The combination partner/committee/committe template already exists!'),
+]
+
+@api.model_create_multi
+def create(self, vals_list):
+res = super(PartnerMembershipCommittee, self).create(vals_list)
+
+resume_lines_values = []
+for partner_committee in res:
+line_type = self.env.ref('membership_profile.resume_type_join_committee', raise_if_not_found=False)
+resume_lines_values.append({
+'partner_id': partner_committee.partner_id.id,
+'name': "{} - {}".format(partner_committee.committee_tmp_id.name, partner_committee.committee_id.name) or '',
+'date_start': partner_committee.committee_id.date_start,
+'date_end': partner_committee.committee_id.date_end,
+'description': partner_committee.description or '',
+'line_type_id': line_type and line_type.id,
+})
+self.env['membership.resume.line'].create(resume_lines_values)
+return res
+---models\membership.py
+import logging
+
+from datetime import timedelta, date
+from odoo import api, models, _
+
+
+_logger = logging.getLogger(__name__)
+
+
+class MembershipLine(models.Model):
+_inherit = 'membership.membership_line'
+
+@api.model_create_multi
+def create(self, vals_list):
+for value in vals_list:
+product_id = value['membership_id']
+membership_product = self.env['product.product'].browse(product_id)
+if membership_product.membership_product_tmp_type == 'recurring':
+invoice_line = self.env['account.move.line'].browse(value['account_invoice_line'])
+invoice = invoice_line.move_id
+if invoice.state not in ['draft', 'cancel']:
+invoice_date = invoice.invoice_date
+if not invoice_date:
+continue
+delta_periodict = membership_product.periodic_id._get_delta_periodict()
+date_from = invoice_date
+date_to = date_from + timedelta(days=delta_periodict)
+value.update({'date_from': date_from, 'date_to': date_to})
+return super().create(vals_list)
+
+def update_date_membership_recurring(self):
+self.ensure_one()
+line = self.account_invoice_line
+invoice = line.move_id
+if (line.product_id.membership_product_tmp_type != 'recurring'
+or not invoice.invoice_date
+or invoice.state in ['draft', 'cancel']):
+return
+if line.product_id.periodic_id:
+delta_periodict = line.product_id.periodic_id._get_delta_periodict()
+date_from = invoice.invoice_date
+date_to = date_from + delta_periodict
+current_time = date.today()
+if date_from <= current_time <= date_to:
+self.partner.write({'is_published': True})
+self.write({'date_from': date_from, 'date_to': date_to})
+
+
+class AccountMove(models.Model):
+_inherit = 'account.move'
+
+def action_post(self):
+# OVERRIDE
+res = super(AccountMove, self).action_post()
+if self.move_type == 'out_invoice':
+lines = self.line_ids.filtered(lambda line: line.product_id.membership)
+existing_memberships = self.env['membership.membership_line'].search([('account_invoice_line', 'in', lines.ids)])
+
+resume_lines_values = []
+for membership in existing_memberships:
+membership.update_date_membership_recurring()
+line_type = self.env.ref('membership_profile.resume_type_join_membership', raise_if_not_found=True)
+description = _('%s become a membership') % (membership.partner.name)
+if len( membership.partner.membership_resume_ids) > 0:
+line_type = self.env.ref('membership_profile.resume_type_extend_membership', raise_if_not_found=True)
+description = _('%s extended membership') % (membership.partner.name)
+resume_lines_values.append({
+'partner_id': membership.partner.id,
+'name': membership.account_invoice_line.product_id.name or '',
+'date_start': membership.date_from,
+'date_end': membership.date_to,
+'description': description or '',
+'line_type_id': line_type and line_type.id,
+})
+
+if len(resume_lines_values) > 0:
+self.env['membership.resume.line'].create(resume_lines_values)
+
+return res
+
+---models\membership_resume_line.py
+# -*- coding: utf-8 -*-
+# Part of Odoo. See LICENSE file for full copyright and licensing details.
+
+from odoo import fields, models
+
+
+class MembershipResumeLine(models.Model):
+_name = 'membership.resume.line'
+_description = "Resume line of an membership"
+_order = "line_type_id, date_end desc, date_start desc"
+
+partner_id = fields.Many2one('res.partner', required=True, ondelete='cascade')
+name = fields.Char(required=True, translate=True)
+date_start = fields.Date(required=True)
+date_end = fields.Date()
+description = fields.Text(string="Description", translate=True)
+line_type_id = fields.Many2one('membership.resume.line.type', string="Type")
+
+# Used to apply specific template on a line
+display_type = fields.Selection([('classic', 'Classic'), ('course', 'Course'), ('certification', 'Certification')],
+string="Display Type", default='classic')
+
+_sql_constraints = [
+('date_check', "CHECK ((date_start <= date_end OR date_end = NULL))", "The start date must be anterior to the end date."),
+]
+
+
+class MembershipResumeLineType(models.Model):
+_name = 'membership.resume.line.type'
+_description = "Type of a resume line"
+_order = "sequence"
+
+name = fields.Char(required=True)
+sequence = fields.Integer('Sequence', default=10)
+---models\product.py
+# -*- coding: utf-8 -*-
+# Part of Odoo. See LICENSE file for full copyright and licensing details.
+import logging
+import datetime
+
+from odoo.exceptions import ValidationError
+from dateutil.relativedelta import relativedelta
+
+from odoo import api, fields, models, _
+
+
+_logger = logging.getLogger(__name__)
+
+
+class Product(models.Model):
+_inherit = 'product.template'
+_description = 'Inherit Product Template mudule membership'
+
+TYPE_SELECTION = [
+('recurring', 'Recurring'),
+('duration', 'Duration'),
+]
+
+# membership_date_from
+# membership_date_to
+membership_product_tmp_type = fields.Selection(selection=TYPE_SELECTION,
+default='duration', help=_('Membership product Template Data type'))
+periodic_id = fields.Many2one('product.periodic.template', string="Periodic", required=False)
+
+@api.constrains('membership_product_tmp_type')
+def _check_membership_date(self):
+for record in self:
+if record.membership_product_tmp_type != 'recurring':
+if not record.membership_date_from or not record.membership_date_to:
+msg = _("Product with type %s required %s and %s") % ('Duration', 'Membership Date From',
+'Membership Date To')
+raise ValidationError(msg)
+
+@api.model_create_multi
+def create(self, vals_list):
+for value in vals_list:
+if not value.get('membership_date_to'):
+value['membership_date_to'] = datetime.date.today()
+if not value.get('membership_date_from'):
+value['membership_date_from'] = datetime.date.today()
+return super().create(vals_list)
+
+
+class PeriodicProductMember(models.Model):
+_name = 'product.periodic.template'
+_description = 'Recurring Template Product'
+
+PERIODIC_TYPE = [('daily', _('Daily')),
+('weekly', _('Weekly')),
+('quarterly', _('Quarterly')),
+('monthly', _('Monthly')),
+('yearly', _('Yearly'))]
+
+name = fields.Char(_('Name'), store=True, copy=False, compute='_compute_name_periodic')
+periodicity = fields.Selection(selection=PERIODIC_TYPE, default='quarterly')
+number_periodic = fields.Integer(_('Number of Periodic'), default=1)
+
+def _get_delta_periodict(self):
+self.ensure_one()
+if self.periodicity == 'daily':
+delta = relativedelta(days=1 * self.number_periodic)
+if self.periodicity == 'weekly':
+delta = relativedelta(weeks=1 * self.number_periodic)
+elif self.periodicity == 'monthly':
+delta = relativedelta(months=1 * self.number_periodic)
+elif self.periodicity == 'quarterly':
+delta = relativedelta(months=3 * self.number_periodic)
+elif self.periodicity == 'yearly':
+delta = relativedelta(years=1 * self.number_periodic)
+return  delta
+
+@api.depends('periodicity', 'number_periodic')
+def _compute_name_periodic(self):
+for record in self:
+record.name = "%s %s" % (record.number_periodic, record.periodicity.title())
+---models\res_partner.py
+import logging
+import base64
+import io
+import qrcode
+
+from werkzeug import urls
+
+from odoo.exceptions import UserError, ValidationError
+from odoo import api, models, fields, _
+from odoo.addons.http_routing.models.ir_http import slug
+
+_logger = logging.getLogger(__name__)
+
+try:
+import vobject
+except ImportError:
+_logger.warning("`vobject` Python module not found, iCal file generation disabled. Consider installing this module if you want to generate iCal files")
+vobject = None
+
+
+VCARD_FORMAT = '''
+BEGIN:VCARD
+VERSION:4.0
+N:{name};
+TEL;TYPE=work;Phone=voice:{mobile_phone}
+TEL;TYPE=home;Home=voice:{home_phone}
+EMAIL:{email}
+ORG:{company_name}
+TITLE:{function}
+ADR;TYPE=WORK,PREF:;;{address}
+URL:{website}
+{more_url}
+END:VCARD
+'''
+
+
+def create_vcard(name, phone_work=None, phone_home=None, email=None, org=None,
+title=None, address=None, url=None, another_urls=None):
+
+def split_name(full_name):
+names = full_name.split()
+if len(names) > 1:
+family_name = names[-1]
+given_name = " ".join(names[:-1])
+else:
+family_name = full_name
+given_name = ""
+return family_name, given_name
+
+try:
+vcard = vobject.vCard()
+family_name, given_name = split_name(name)
+vcard.add('fn').value = name
+vcard.add('n').value = vobject.vcard.Name(family=family_name, given=given_name)
+if phone_work:
+vcard.add('tel').value = phone_work
+if phone_home:
+vcard.add('tel').value = phone_home
+if email:
+vcard.add('email').value = email
+if org:
+vcard.add('org').value = [org]
+if title:
+vcard.add('title').value = title
+if address:
+attr_address = dict()
+if address.get('street'):
+attr_address['street'] = address['street']
+if address.get('city'):
+attr_address['city'] = address['city']
+if address.get('region'):
+attr_address['region'] = address['region']
+if address.get('code'):
+attr_address['code'] = address['code']
+if address.get('country'):
+attr_address['country'] = address['country']
+if attr_address:
+vcard.add('adr').value = vobject.vcard.Address(**attr_address)
+if url:
+vcard.add('url').value = url
+if another_urls:
+for social in another_urls:
+if not social.link:
+continue
+vcard.add('x-socialprofile').value = social.link
+return vcard.serialize()
+except Exception as e:
+_logger.error('ERROR when create Vcard %s ' % str(e))
+raise UserError(e)
+# return None
+
+
+class ResPartner(models.Model):
+_inherit = 'res.partner'
+
+contact_qr = fields.Binary('Contact QR', attachment=False,
+store=True, readonly=True, compute='_compute_qr_code')
+website_qr = fields.Binary('Website QR', attachment=False,
+store=True, readonly=True, compute='_compute_website_qr_code')
+social_ids = fields.One2many('member.social', 'partner_id', string='Social links')
+# Only set for company
+registered_business = fields.Char(string=_('Registered Business'), required=False)
+# Use when company register multi business and multi contract
+specific_business = fields.Boolean(default=False)
+
+profile_tmp = fields.Selection(string=_('Profile Template'), selection=[('tmp_1', 'Template 1'), ('tmp_2', 'Template 2')],
+default='tmp_1', required=True)
+
+committee_ids = fields.One2many(comodel_name='membership.partner.committee',
+inverse_name='partner_id', copy=False, string='Committees')
+is_committee = fields.Boolean(compute='_compute_committee', store=True, copy=False)
+show_journal_committee = fields.Boolean(default=True)
+
+membership_resume_ids = fields.One2many(comodel_name='membership.resume.line',
+inverse_name='partner_id', copy=False, string='Membership Resume')
+
+@api.constrains('specific_business')
+def _specific_business_required_company_multi_contract(self):
+for record in self:
+if record.specific_business:
+if record.is_company:
+raise UserError(_('Only use for Individual membership'))
+else:
+parent = record.parent_id
+if len(self.env['res.partner'].search([('parent_id', '=', parent.id)])) < 2:
+raise UserError(_('Only usage for Company has many contact'))
+
+def set_show_committee(self):
+self.ensure_one()
+current = self.show_journal_committee
+self.write({'show_journal_committee': not current})
+
+@api.depends('committee_ids')
+def _compute_committee(self):
+for record in self:
+if len(record.committee_ids) > 0:
+record.is_committee = True
+else:
+record.is_committee = False
+
+def _get_committe_journal(self):
+self.ensure_one()
+result = []
+if len(self.committee_ids) < 0:
+return result
+
+committee_index = 0
+for committee in self.committee_ids:
+committee_index += 1
+result.append({
+'committee_index': committee_index,
+'committee_name': committee.committee_id.name,
+'name': committee.committee_tmp_id.name,
+'description': committee.description,
+'date_start': committee.committee_id.date_start.strftime("%d/%m/%Y"),
+'date_end': committee.committee_id.date_end.strftime("%d/%m/%Y"),
+})
+return result
+
+def _get_membership_resume(self):
+self.ensure_one()
+result = []
+resume_ids = self.env['membership.resume.line'].sudo().search([('partner_id', '=', self.id)], order="date_start desc")
+if len(resume_ids) < 1:
+return result
+
+index = 0
+for resume in resume_ids:
+index += 1
+result.append({
+'index': index,
+'name': resume.name,
+'description': resume.description,
+'date_start': resume.date_start.strftime("%d/%m/%Y"),
+'date_end': resume.date_end.strftime("%d/%m/%Y") if resume.date_end else _('Current'),
+'month_year': resume.date_start.strftime("%m-%Y"),
+})
+return result
+
+def _compute_website_url(self):
+super()._compute_website_url()
+for partner in self:
+partner.website_url = "/partners/members/%s" % slug(partner)
+
+def _partner_full_address(self):
+self.ensure_one()
+partner = self
+address = ""
+if partner.street:
+address += partner.street + ", "
+if partner.street2:
+address += partner.street2 + ", "
+if partner.city:
+address += partner.city + ", "
+if partner.state_id:
+address += partner.state_id.name + ", "
+if partner.zip:
+address += partner.zip + ", "
+if partner.country_id:
+address += partner.country_id.name
+return address
+
+def _partner_dict_address(self) -> dict:
+self.ensure_one()
+partner = self
+return {
+'street': partner.street,
+'city': partner.city,
+'region': partner.state_id.name,
+'code': partner.zip,
+'country': partner.country_id.name,
+}
+
+def _compute_website_qr_code(self):
+for record in self:
+url = urls.url_join(record.get_base_url(), record.website_url)
+qr = qrcode.QRCode(version=1,
+error_correction=qrcode.constants.ERROR_CORRECT_L,
+box_size=10,
+border=4)
+qr.add_data(url.encode('utf-8'))
+qr.make(fit=True)
+img = qr.make_image(fill_color="black", back_color="white")
+temp = io.BytesIO()
+img.save(temp, format='PNG')
+record.website_qr = base64.b64encode(temp.getvalue())
+
+# Defined fields depends of contact QR code
+FIELDS_QR = ['name', 'function', 'website', 'email', 'phone', 'mobile', 'social_ids']
+
+@api.depends(lambda self: self.FIELDS_QR)
+def _compute_qr_code(self):
+for record in self:
+vcard_data = record._get_vcard()
+qr = qrcode.QRCode(
+version=1,
+error_correction=qrcode.constants.ERROR_CORRECT_L,
+box_size=10,
+border=4,
+)
+qr.add_data(vcard_data.encode('utf-8'))
+qr.make(fit=True)
+img = qr.make_image(fill_color="black", back_color="white")
+temp = io.BytesIO()
+img.save(temp, format='PNG')
+qr_image = base64.b64encode(temp.getvalue())
+record.contact_qr = qr_image
+
+def refresh_new_imge_qr_code(self):
+self.ensure_one()
+self._compute_qr_code()
+
+def _get_vcard(self):
+self.ensure_one()
+record = self
+if vobject:
+name = record.name
+phone_home = record.phone
+phone_work = record.mobile
+email = record.email
+org = record.parent_id.name
+title = record.function
+address = record._partner_dict_address()
+url = record.website
+vcard_data = create_vcard(name, phone_work, phone_home, email, org,
+title, address, url, another_urls=record.social_ids)
+if not vcard_data:
+vcard_data = record._contact_qr_code()
+else:
+vcard_data = record._contact_qr_code()
+return vcard_data
+
+# TODO: remove function if dont need
+def _contact_qr_code(self):
+
+self.ensure_one()
+''' Example:
+BEGIN:VCARD
+VERSION:4.0
+FN:John Doe
+N:Doe;John;;;
+ORG:ABC Corporation
+TITLE:CEO
+EMAIL:john.doe@example.com
+TEL;TYPE=work,voice:(123) 456-7890
+TEL;TYPE=home,voice:(987) 654-3210
+ADR;TYPE=work:;;123 Main St;Anytown;CA;12345;USA
+ADR;TYPE=home:;;456 Elm St;Othertown;CA;54321;USA
+URL;TYPE=work:http://www.example.com
+URL;TYPE=home:http://www.personalwebsite.com
+X-SOCIALPROFILE;TYPE=linkedin:http://www.linkedin.com/in/johndoe
+
+REV:2023-08-06T12:00:00Z
+END:VCARD
+'''
+more_url = ""
+for social in self.social_ids:
+if social.link:
+more_url += f"X-SOCIALPROFILE;TYPE={social.social_type}:{social.link}\n"
+value_qr = VCARD_FORMAT.format(name=self.full_name_vcard(), home_phone=self.phone,
+mobile_phone=self.mobile, email=self.email, company_name=self.parent_id.name,
+function=self.function, address=self.full_address_vcard(), more_url=more_url, website=self.website)
+return value_qr
+
+def full_address_vcard(self):
+"""The mothod return full adress of fomart Vcard"""
+self.ensure_one()
+partner = self
+address = ""
+if partner.street:
+address += partner.street
+if partner.street2:
+address += ";" + partner.street2
+if partner.city:
+address += ";" + partner.city
+if partner.state_id:
+address += ";" + partner.state_id.name
+if partner.zip:
+address += ";" + partner.zip
+if partner.country_id:
+address += ";" + partner.country_id.name
+return address
+
+def full_name_vcard(self):
+self.ensure_one()
+return self.name.replace(" ", ";")
+
+def _get_member_member_title_filter(self):
+titles = self.env['res.partner.title'].sudo().search([])
+return [('all', _('All'))] + [(title.shortcut, title.name) for title in titles]
+---models\social.py
+import logging
+
+from urllib.parse import urlparse, urlunparse
+
+from odoo import api, models, fields, _
+
+
+_logger = logging.getLogger(__name__)
+
+
+DEFAULT_SOCIAL = [
+('facebook', 'Facebook'),
+('twitter', 'Twitter'),
+('linkedin', 'Linked In'),
+('github', 'GitHub'),
+('youtube', 'YouTube'),
+('instagram', 'Instagram'),
+('zalo', 'Zalo'), # Currently, Odoo doesn't support Icon Type Zalo
+('tiktok', 'TikTok'),  # Currently, Odoo doesn't support Icon Type tiktok
+]
+
+def normalize_url(url):
+if not url:
+return ""
+parsed_url = urlparse(url)
+
+# If the scheme is not present, replace it with "https"
+if not parsed_url.scheme:
+netloc = parsed_url.netloc
+path = parsed_url.path
+parsed_url = parsed_url._replace(scheme="https")
+if not netloc and path:
+parsed_url = parsed_url._replace(netloc=path, path='')
+
+# Reconstruct the URL
+normalized_url = urlunparse(parsed_url)
+
+return normalized_url
+
+
+class Social(models.Model):
+_name = 'member.social'
+_description = 'Partner Socials'
+
+social_type = fields.Selection(selection=DEFAULT_SOCIAL, required=True)
+# is_other = fields.Boolean(default=False)
+link = fields.Char('Link Social')
+partner_id = fields.Many2one('res.partner', 'Member', required=True)
+
+@api.model_create_multi
+def create(self, vals_list):
+for vals in vals_list:
+if 'link' in vals:
+vals['link'] = normalize_url(vals['link'])
+return super().create(vals_list)
+
+def write(self, vals):
+if 'link' in vals:
+vals['link'] = normalize_url(vals['link'])
+return super(Social, self).write(vals)
+---models\website.py
+# -*- coding: utf-8 -*-
+# Part of Odoo. See LICENSE file for full copyright and licensing details.
+
+from odoo import fields, models, _
+
+
+class Website(models.Model):
+_inherit = "website"
+
+default_filter_member = fields.Char('Default filter Member', default='title')
+value_field_filter_member = fields.Char(help='Value of field default filter')
+---models\__init__.py
+from . import res_partner
+from . import product
+from . import membership
+from . import website
+from . import social
+from . import committee
+from . import membership_resume_line
+---security\ir.model.access.csv
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_product_periodic_template,product_periodic_template,model_product_periodic_template,base.group_user,1,1,1,1
+access_member_social,member_social,model_member_social,base.group_user,1,1,1,1
+access_membership_committee,membership_committee,model_membership_committee,base.group_user,1,1,1,1
+access_membership_committee_tmp,membership_committee_tmp,model_membership_committee_tmp,base.group_user,1,1,1,1
+access_membership_partner_committee,membership_partner_committee,model_membership_partner_committee,base.group_user,1,1,1,1
+access_membership_resume_line,membership_resume_line,model_membership_resume_line,base.group_user,1,1,1,1
+access_membership_resume_line_type,membership_resume_line_type,model_membership_resume_line_type,base.group_user,1,1,1,0
+access_membership_committee_tmp_type,membership_committee_tmp_type,model_membership_committee_tmp_type,base.group_user,1,1,1,0
+---static\description\index.html
+<section class="oe_container">
+<div class="oe_row oe_spaced">
+<h3 class="oe_slogan">Some features module</h3>
+</div>
+<div>
+<div class="pb-10">
+<p>Create new Committee</p>
+<div class="oe_demo oe_picture oe_screenshot" style="max-width: 75%;">
+<img src="img/create_committee.png" alt="">
+</div>
+</div>
+<div>
+<p>Config Committee template</p>
+<div class="oe_demo oe_picture oe_screenshot" style="max-width: 75%;">
+<img src="img/Config_committee_tmp.png" alt="">
+</div>
+</div>
+<div>
+<p>Config committee template type</p>
+<div class="oe_demo oe_picture oe_screenshot" style="max-width: 75%;">
+<img src="img/config_committee_tmp_type.png" alt="">
+</div>
+</div>
+<div>
+<p>Setup member with committee</p>
+<div class="oe_demo oe_picture oe_screenshot" style="max-width: 75%;">
+<img src="img/create_member_committee.png" alt="">
+</div>
+</div>
+
+<div>
+<p>Membership dynamic snippet</p>
+<div class="oe_demo oe_picture oe_screenshot" style="max-width: 75%;">
+<img src="img/dynamic_membership_snippet.png" alt="">
+</div>
+</div>
+</div>
+</section>
+---static\src\css\style.scss
+/*
+@import url("https://fonts.googleapis.com/css2?family=Karla:ital,wght@0,200;0,300;0,400;0,500;0,600;0,700;0,800;1,300;1,500&family=Montserrat&display=swap");
+*/
+/*! normalize.css v8.0.1 | MIT License | github.com/necolas/normalize.css */
+/* Document
+========================================================================== */
+/**
+* 1. Correct the line height in all browsers.
+* 2. Prevent adjustments of font size after orientation changes in iOS.
+*/
+
+/* Header all memeber */
+.o_public_member_member_header {
+background-color: #0a1b32;
+}
+
+/* Card */
+
+.pm_card {
+transition: all 0.2s ease;
+}
+/* Focus */
+@media (max-width: 575.98px) {
+/* Focus effect */
+}
+
+@media (max-width: 767.98px) {
+/* Focus effect */
+}
+
+/* Effect Background */
+.pm_bg_effect {
+transform: skew(0deg, -10deg) translateY(-120px);
+background-color: #dc3545;
+}
+.pm_bg_effect_content {
+transform: skew(0deg, 10deg);
+}
+
+/* Addess */
+.pm_location_icon_circle {
+display: flex;
+color: #dc3545;
+justify-content: center;
+align-items: center;
+font-size: 20px;
+}
+
+.pm_gradient{
+background: linear-gradient($secondary 50%, transparent 50%) no-repeat;
+}
+
+/* Zoom Image */
+.pm_zoom {
+-webkit-transition: all 0.35s ease-in-out;
+-moz-transition: all 0.35s ease-in-out;
+transition: all 0.35s ease-in-out;
+cursor: -webkit-zoom-in;
+cursor: -moz-zoom-in;
+cursor: zoom-in;
+}
+.s_member_avatar {
+width: 192px !important;
+height: 192px !important;
+object-fit: cover !important;
+cursor: pointer;
+}
+
+.s_member_avatar_x2 {
+width: 256px !important;
+height: 256px !important;
+object-fit: cover !important;
+cursor: pointer;
+}
+
+// TEMPLATE SNIPPETS
+
+.s_public_member_snippet_temp1 {
+.s_member_avatar {
+@extend .rounded-circle;
+@extend .img-fluid;
+@extend .border;
+@extend .border-primary;
+@extend .border-4;
+@extend .bg-white;
+}
+}
+
+.s_public_member_snippet_temp2 {
+.s_member_avatar {
+@extend .rounded-circle;
+@extend .img-fluid;
+@extend .border;
+@extend .border-primary;
+@extend .border-4;
+@extend .bg-white;
+}
+.pm_gradient{
+background: linear-gradient($secondary 40%, transparent 60%) no-repeat;
+}
+}
+
+.s_member_effect_scale {
+/* Hover */
+@media (min-width: 768px) {
+/* Hover effect */
+.pm_card:hover {
+box-shadow: rgba(0, 0, 0, 0.24) 0px 5px 10px;
+z-index:2;
+transform: scale(1.1);
+}
+}
+}
+.s_member_hidden_address {
+.s_member_address {
+display: none !important;
+}
+}
+
+.s_member_hidden_social {
+.s_social_media {
+display: none !important;
+}
+}
+.s_member_hidden_contact {
+.s_member_contact {
+display: none !important;
+}
+}
+
+.s_member_hidden_business {
+.s_member_business {
+display: none !important;
+}
+}
+
+.s_hidden_search_bar {
+.o_member_search_bar {
+display: none !important;
+}
+}
+
+.s_public_member_snippet_temp3 {
+.s_member_avatar {
+@extend .rounded-circle;
+@extend .img-fluid;
+@extend .border;
+@extend .border-primary;
+@extend .border-4;
+@extend .bg-white;
+}
+.s_parent_member {
+display: none !important;
+}
+.s_second_member_parent {
+display: block !important;
+}
+.s_member_name {
+font-size: 36px;
+}
+.pm_gradient {
+background: none !important;
+}
+}
+
+.s_public_member_snippet_temp4 {
+.s_parent_member {
+display: none !important;
+}
+.s_second_member_parent {
+display: block !important;
+}
+.s_member_name {
+font-size: 36px;
+}
+.pm_gradient {
+background: none !important;
+}
+.s_member_avatar {
+max-width: 100% !important;
+width: auto !important;
+height: auto !important;
+object-fit: cover;
+cursor: default;
+border-radius: unset !important;
+}
+}
+
+.o_member_search_close {
+height: 2rem !important;
+border-radius: unset !important;
+}
+
+.s_social_media_zalo img {
+height: 15px !important;
+}
+
+
+.s_social_media_zalo_2x img {
+height: 30px !important;
+}
+
+
+.s_social_media_tiktok img {
+height: 15px !important;
+}
+
+
+.s_social_media_tiktok_2x img {
+height: 30px !important;
+}
+
+
+// TIMELINE COMMITTEE
+
+pt-100{
+padding-top:100px;
+}
+.pb-100{
+padding-bottom:100px;
+}
+.section-title {
+margin-bottom: 60px;
+}
+.section-title p {
+color: #777;
+font-size: 16px;
+}
+.section-title h4 {
+text-transform: capitalize;
+font-size: 40px;
+position: relative;
+padding-bottom: 20px;
+margin-bottom: 20px;
+font-weight: 600;
+}
+.section-title h4:before {
+position: absolute;
+content: "";
+width: 60px;
+height: 2px;
+@extend .bg-primary;
+bottom: 0;
+left: 50%;
+margin-left: -30px;
+}
+.section-title h4:after {
+position: absolute;
+@extend .bg-primary;
+content: "";
+width: 10px;
+height: 10px;
+bottom: -4px;
+left: 50%;
+margin-left: -5px;
+border-radius: 50%;
+}
+ul.timeline-list {
+position: relative;
+margin: 0;
+padding: 0
+}
+ul.timeline-list:before {
+position: absolute;
+content: "";
+width: 2px;
+height: 100%;
+@extend .bg-primary;
+left: 50%;
+top: 0;
+-webkit-transform: translateX(-50%);
+transform: translateX(-50%);
+}
+ul.timeline-list li {
+position: relative;
+clear: both;
+display: table;
+}
+.timeline_content {
+@extend .border;
+@extend .border-primary;
+background-color:#fff;
+}
+ul.timeline-list li .timeline_content {
+width: 45%;
+color: #333;
+padding: 10px;
+float: left;
+text-align: right;
+}
+ul.timeline-list li:nth-child(2n) .timeline_content {
+float: right;
+text-align: left;
+}
+.timeline_content h4 {
+font-size: 22px;
+font-weight: 600;
+margin: 10px 0;
+}
+ul.timeline-list li:before {
+position: absolute;
+content: "";
+width: 25px;
+height: 25px;
+@extend .bg-primary;
+left: 50%;
+top: 50%;
+-webkit-transform: translate(-50%, -50%);
+transform: translate(-50%, -50%);
+border-radius: 50%;
+}
+.timeline_content span {
+font-size: 18px;
+font-weight: bold;
+@extend .primary;
+}
+---static\src\img\tiktok.svg
+<?xml version="1.0"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 50 50" width="50px" height="50px">
+<path d="M41,4H9C6.243,4,4,6.243,4,9v32c0,2.757,2.243,5,5,5h32c2.757,0,5-2.243,5-5V9C46,6.243,43.757,4,41,4z M37.006,22.323 c-0.227,0.021-0.457,0.035-0.69,0.035c-2.623,0-4.928-1.349-6.269-3.388c0,5.349,0,11.435,0,11.537c0,4.709-3.818,8.527-8.527,8.527 s-8.527-3.818-8.527-8.527s3.818-8.527,8.527-8.527c0.178,0,0.352,0.016,0.527,0.027v4.202c-0.175-0.021-0.347-0.053-0.527-0.053 c-2.404,0-4.352,1.948-4.352,4.352s1.948,4.352,4.352,4.352s4.527-1.894,4.527-4.298c0-0.095,0.042-19.594,0.042-19.594h4.016 c0.378,3.591,3.277,6.425,6.901,6.685V22.323z"/>
+</svg>
+---static\src\img\zalo.svg
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48px" height="48px">
+<path fill="#2962ff" d="M15,36V6.827l-1.211-0.811C8.64,8.083,5,13.112,5,19v10c0,7.732,6.268,14,14,14h10	c4.722,0,8.883-2.348,11.417-5.931V36H15z"/>
+<path fill="#eee" d="M29,5H19c-1.845,0-3.601,0.366-5.214,1.014C10.453,9.25,8,14.528,8,19	c0,6.771,0.936,10.735,3.712,14.607c0.216,0.301,0.357,0.653,0.376,1.022c0.043,0.835-0.129,2.365-1.634,3.742	c-0.162,0.148-0.059,0.419,0.16,0.428c0.942,0.041,2.843-0.014,4.797-0.877c0.557-0.246,1.191-0.203,1.729,0.083	C20.453,39.764,24.333,40,28,40c4.676,0,9.339-1.04,12.417-2.916C42.038,34.799,43,32.014,43,29V19C43,11.268,36.732,5,29,5z"/>
+<path fill="#2962ff" d="M36.75,27C34.683,27,33,25.317,33,23.25s1.683-3.75,3.75-3.75s3.75,1.683,3.75,3.75	S38.817,27,36.75,27z M36.75,21c-1.24,0-2.25,1.01-2.25,2.25s1.01,2.25,2.25,2.25S39,24.49,39,23.25S37.99,21,36.75,21z"/>
+<path fill="#2962ff" d="M31.5,27h-1c-0.276,0-0.5-0.224-0.5-0.5V18h1.5V27z"/>
+<path fill="#2962ff" d="M27,19.75v0.519c-0.629-0.476-1.403-0.769-2.25-0.769c-2.067,0-3.75,1.683-3.75,3.75	S22.683,27,24.75,27c0.847,0,1.621-0.293,2.25-0.769V26.5c0,0.276,0.224,0.5,0.5,0.5h1v-7.25H27z M24.75,25.5	c-1.24,0-2.25-1.01-2.25-2.25S23.51,21,24.75,21S27,22.01,27,23.25S25.99,25.5,24.75,25.5z"/>
+<path fill="#2962ff" d="M21.25,18h-8v1.5h5.321L13,26h0.026c-0.163,0.211-0.276,0.463-0.276,0.75V27h7.5	c0.276,0,0.5-0.224,0.5-0.5v-1h-5.321L21,19h-0.026c0.163-0.211,0.276-0.463,0.276-0.75V18z"/>
+</svg>
+---static\src\img\snippets_thumbs\s_membership_snippet.svg
+<svg data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" width="691" height="571.22835" viewBox="0 0 691 571.22835" xmlns:xlink="http://www.w3.org/1999/xlink"><path d="M944.5,200.38583h-689a1,1,0,0,1,0-2h689a1,1,0,0,1,0,2Z" transform="translate(-254.5 -164.38583)" fill="#cacaca"/><circle cx="23.50787" cy="11" r="11" fill="#3f3d56"/><circle cx="61.50787" cy="11" r="11" fill="#3f3d56"/><circle cx="99.50787" cy="11" r="11" fill="#3f3d56"/><path d="M687.31346,302.20053H512.68654a8.22518,8.22518,0,0,1,0-16.45036H687.31346a8.22518,8.22518,0,1,1,0,16.45036Z" transform="translate(-254.5 -164.38583)" fill="#e4e4e4"/><path d="M659.158,274.04511H540.842a8.22519,8.22519,0,0,1,0-16.45037H659.158a8.22518,8.22518,0,0,1,0,16.45037Z" transform="translate(-254.5 -164.38583)" fill="#e4e4e4"/><circle cx="123.73228" cy="297.22835" r="73" fill="#f0f0f0"/><circle cx="595.73228" cy="297.22835" r="73" fill="#f0f0f0"/><circle cx="345.73228" cy="297.22835" r="73" fill="#f0f0f0"/><path d="M885.71169,493.25319a112.49294,112.49294,0,0,0-17.946-7.55226l-.78988-8.73-32.00552-3.44819-4.06751,11.15837-11.486,4.31035a5.60545,5.60545,0,0,0-1.16622.60705h-.01239a11.34228,11.34228,0,0,0-5.269,1.82128,11.66491,11.66491,0,0,0-2.81648,2.52552c1.554,1.17778,3.16807,2.27052,4.83166,3.31479l.07336.03633c.47354.29143.95947.58287,1.44445.86216.87467.522,1.77316,1.01985,2.67165,1.4934l.57073.29143c1.31105.67995,2.64688,1.32344,4.01891,1.91835.27917.12148.58311.24284.86228.36433.02382.01214.03621.01214.06.02429.64409.26714,1.28723.522,1.94276.76486a63.82618,63.82618,0,0,0,6.581,2.11272,67.67638,67.67638,0,0,0,17.44769,2.28267c2.14952,0,4.27426-.09718,6.37519-.30358a67.391,67.391,0,0,0,14.13289-2.85328c.01143,0,.02477-.01215.03621-.01215a66.31681,66.31681,0,0,0,8.48754-3.36327c.01144-.01215.03621-.01215.0486-.0243.61932-.29143,1.21386-.60705,1.8208-.91064l.29155-.14577c.48593-.25488.97186-.50987,1.45779-.777,1.21387-.6678,2.40392-1.372,3.58062-2.12487.32777-.19425.6441-.40065.97186-.6192.46116-.30358.92231-.6192,1.372-.94708C888.10321,494.60092,886.92555,493.90883,885.71169,493.25319Z" transform="translate(-254.5 -164.38583)" fill="#00bfa6"/><circle cx="595.21717" cy="280.56667" r="23.05088" fill="#a0616a"/><path d="M834.241,433.72488c2.38613,2.82385,6.42439,3.62069,10.14949,3.9474,7.56524.66349,18.566-.41275,25.95922-2.11971.52764,5.11434-.911,10.62883,2.10134,14.8359a68.873,68.873,0,0,0,2.44711-15.61333,14.94474,14.94474,0,0,0-.86494-6.68712,6.15027,6.15027,0,0,0-5.23918-3.8626,13.13088,13.13088,0,0,1,5.85723-2.5041l-7.31917-3.67816,1.87956-1.92965-13.25093-.81087,3.83795-2.43821a83.22226,83.22226,0,0,0-17.43528-.55038c-2.70028.19894-5.52345.579-7.71132,2.14353s-3.45208,4.67409-2.09386,6.97113a10.12191,10.12191,0,0,0-7.71382,6.1206,16.34045,16.34045,0,0,0-.58555,7.85429,55.67588,55.67588,0,0,0,2.91919,12.34966Z" transform="translate(-254.5 -164.38583)" fill="#2f2e41"/><circle id="bfd52db7-3176-431c-b22d-4ccf50ae4673" data-name="Ellipse 188" cx="349.78151" cy="247.9577" r="9.74625" fill="#2f2e41"/><path id="b31e8c25-48a3-409d-90cd-0f3aa66812dd-267" data-name="Path 969" d="M595.8265,417.41438a9.74745,9.74745,0,0,1,3.5442-16.35922,9.7439,9.7439,0,1,0,4.51778,18.87613,9.72307,9.72307,0,0,1-8.06281-2.51769Z" transform="translate(-254.5 -164.38583)" fill="#2f2e41"/><circle id="fe71adb6-1e7d-40f2-ae2d-2f206863ade9" data-name="Ellipse 189" cx="349.97817" cy="281.77689" r="28.63055" fill="#2f2e41"/><path id="e07a90a6-c331-41ef-a441-b6d8bd717078-268" data-name="Path 970" d="M579.00773,430.39912a28.6259,28.6259,0,0,1,39.67839-3.00246c-.23349-.22295-.467-.4471-.70858-.663a28.63055,28.63055,0,0,0-38.20772,42.64978q.08154.073.16359.14542c.24282.216.49262.42023.74128.62686a28.62587,28.62587,0,0,1-1.66582-39.75662Z" transform="translate(-254.5 -164.38583)" fill="#2f2e41"/><circle id="fefa9ca9-d901-48cd-a772-63aab06ef99d" data-name="Ellipse 190" cx="349.73536" cy="291.72509" r="18.43954" fill="#a0616a"/><path d="M637.23228,504.15531v6.187c-1.13258.72375-2.27657,1.40084-3.44392,2.04287-.46683.25679-.93366.502-1.40049.74713l-.28043.14007c-.58368.29184-1.156.59537-1.751.87552-.0114.01168-.03534.01168-.04674.0233a63.74437,63.74437,0,0,1-8.16008,3.23359c-.0114,0-.0228.01169-.03477.01169a64.79794,64.79794,0,0,1-13.58818,2.74326c-2.0195.1985-4.06237.29183-6.12861.29183a65.05958,65.05958,0,0,1-16.77446-2.19463,63.16986,63.16986,0,0,1-8.19485-2.76663c-.02337-.01161-.03534-.01161-.05871-.02329-.26847-.11678-.56031-.23349-.82878-.35027-1.319-.572-2.60318-1.19065-3.864-1.84437l-.54834-.28015c-1.34292-.71214-2.66189-1.45919-3.9575-2.26467l-.07011-.03506a63.94175,63.94175,0,0,1-5.76666-4.05069c-.94563-.72375-1.85591-1.48256-2.7434-2.27635-.46683-.39693-.93366-.81716-1.37711-1.22571a63.19484,63.19484,0,0,1-4.845-4.99631,23.61669,23.61669,0,0,1,.88748-3.58379l.0114-.01169a5.24,5.24,0,0,1,.2451-.58368,4.655,4.655,0,0,1,.22173-.49026c2.08961-3.91062,5.87212-4.87954,10.56491-5.08966,2.64992-.11677,5.5797.01169,8.67365-.02337,1.63418-.01168,3.32651-.07,5.0194-.2218,10.68118-.96885,8.74376-7.2726,9.222-10.66964.4788-3.29188,3.44393-.44353,3.64228-.25678l.0114.01168a37.67235,37.67235,0,0,0,19.37821,3.397c1.144-.14007,2.288-.2218,3.432-.25678,3.01187-.03505,2.35808.82878,1.31954,1.54092a13.05522,13.05522,0,0,1-1.576.8872s-.4788,2.91839-.969,7.28428c-.46682,4.17908,14.25336,5.62666,17.137,6.53716h.0114A10.52719,10.52719,0,0,1,637.23228,504.15531Z" transform="translate(-254.5 -164.38583)" fill="#00bfa6"/><ellipse id="eb9de4e7-d719-4e1b-ab1d-c7fc470b1049" data-name="Ellipse 191" cx="331.05301" cy="287.84364" rx="1.45569" ry="2.66857" fill="#a0616a"/><ellipse id="a295d86f-11aa-4df2-91d0-9ecb8f1fab78" data-name="Ellipse 192" cx="368.41888" cy="287.84364" rx="1.45569" ry="2.66857" fill="#a0616a"/><path d="M354.87705,466.7261l3.50306,12.13477,44.76593-.78975-.39225-22.23389c-.31048-17.59891-12.7482-32.77758-30.34676-32.46711s-28.78858,15.18853-28.47811,32.78744l2.55657,22.91315,7.29877-.12876Z" transform="translate(-254.5 -164.38583)" fill="#2f2e41"/><circle cx="119.90748" cy="290.74031" r="20.08534" fill="#ffb6b6"/><path d="M396.395,441.02268a7.7901,7.7901,0,0,0-1.3835-4.2984c-.09248-.13-.1854-.25068-.27833-.37137a7.827,7.827,0,0,0-6.27609-2.99865l-14.43612.25991-14.42707.25068a7.81655,7.81655,0,0,0-7.65913,7.93764l3.43519,6.91644,1.97734,3.9735.325-.18569c12.48644-7.01855,17.59253-7.11142,34.118-.58488l.33408.13,1.30917-3.35149,2.97054-7.60344Z" transform="translate(-254.5 -164.38583)" fill="#2f2e41"/><path d="M414.38728,486.4483c-4.30823-4.29835-18.88366-2.59016-18.88366-2.59016L357.032,486.28125c-8.53235.63124-16.21937,7.46411-19.0043,10.23067.44518.43637.90056.86339,1.36528,1.27182a53.85271,53.85271,0,0,0,63.33295,6.016c4.12217-2.46028,9.39637-5.40993,12.70125-8.85424,1.30921-1.3554,2.35674-1.32842,3.51727-2.81381A11.58921,11.58921,0,0,0,414.38728,486.4483Z" transform="translate(-254.5 -164.38583)" fill="#00bfa6"/><circle cx="123.73228" cy="498.22835" r="73" fill="#f0f0f0"/><circle cx="595.73228" cy="498.22835" r="73" fill="#f0f0f0"/><circle cx="345.73228" cy="498.22835" r="73" fill="#f0f0f0"/><circle cx="122.53725" cy="488.51829" r="20.18141" fill="#ffb8b8"/><path d="M357.94449,659.21819s1.71468-3.01125,1.31605-13.07083,14.9197-4.37,27.71977-5.32963,10.09053,16.79472,10.09053,16.79472.92344-1.0554,2.90053-9.62417-2.512-17.1079-2.512-17.1079c-1.32209-9.00418-8.44726-6.11833-8.44726-6.11833,3.43139,1.33581,2.77235,4.19206,2.77235,4.19206-2.90455-5.09247-10.02971-2.20662-10.02971-2.20662-9.50292-5.96331-19.134,1.88962-19.134,1.88962-11.48,2.60544-4.74742,11.735-4.74742,11.735C346.32826,646.20649,357.94449,659.21819,357.94449,659.21819Z" transform="translate(-254.5 -164.38583)" fill="#2f2e41"/><path d="M410.71169,700.26888a112.49294,112.49294,0,0,0-17.946-7.55226l-.78988-8.73-32.00552-3.44819-4.06751,11.15837-11.486,4.31035a5.60545,5.60545,0,0,0-1.16622.607h-.01239a11.34228,11.34228,0,0,0-5.269,1.82128,11.66512,11.66512,0,0,0-2.81648,2.52552c1.554,1.17778,3.16807,2.27052,4.83166,3.31479l.07336.03633c.47354.29144.95947.58287,1.44445.86216.87467.522,1.77316,1.01986,2.67165,1.4934l.57073.29144c1.31105.67994,2.64688,1.32344,4.01891,1.91834.27917.12148.58311.24285.86228.36433.02382.01215.03621.01215.06.02429.64409.26715,1.28723.522,1.94276.76487a63.82369,63.82369,0,0,0,6.581,2.11271,67.67638,67.67638,0,0,0,17.44769,2.28267c2.14952,0,4.27426-.09718,6.37519-.30358a67.391,67.391,0,0,0,14.13289-2.85328c.01143,0,.02477-.01215.03621-.01215A66.31681,66.31681,0,0,0,404.689,707.894c.01144-.01215.03621-.01215.0486-.02429.61932-.29144,1.21386-.60706,1.8208-.91064l.29155-.14578c.48593-.25488.97186-.50987,1.45779-.777,1.21387-.6678,2.40392-1.372,3.58062-2.12487.32777-.19425.6441-.40065.97186-.6192.46116-.30358.92231-.6192,1.372-.94708C413.10321,701.61661,411.92555,700.92452,410.71169,700.26888Z" transform="translate(-254.5 -164.38583)" fill="#00bfa6"/><path d="M627.98794,695.99956,615.83785,694.895l-7.27034-5.30973a.04144.04144,0,0,0-.00916-.02811l-.01878.00933-.29087-.21575-.03756.33771-12.27053,4.71871-12.60813-2.90811-4.36211,4.71865-19.42819,6.44481a9.87032,9.87032,0,0,0-2.42982,2.29814l.00131.01245c.81572.63837,1.65413,1.26751,2.50317,1.864a64.47429,64.47429,0,0,0,5.99464,3.84622,67.54019,67.54019,0,0,0,16.00419,6.57615q.75993.21111,1.51985.394c.88176.21581,1.77269.42216,2.66408.591q2.70163.56291,5.46924.88183a67.051,67.051,0,0,0,8.17089.48783q2.80059,0,5.54437-.21574a68.34591,68.34591,0,0,0,9.54965-1.45412c.11268-.02811.22537-.04689.338-.0844a67.548,67.548,0,0,0,13.95895-4.85939c.6848-.32837,1.3696-.66608,2.04478-1.01317q2.4914-1.28049,4.84079-2.758c1.18225-.7317,2.33611-1.51035,3.46156-2.31711.69442-.49722,1.37922-1.00378,2.0544-1.52912l-.0729-.15536A16.16256,16.16256,0,0,0,627.98794,695.99956Z" transform="translate(-254.5 -164.38583)" fill="#00bfa6"/><path d="M616.382,635.36265a22.34916,22.34916,0,0,0-4.756-3.593c-10.74152-5.92885-22.477-6.032-32.19618-.29081a30.30412,30.30412,0,0,0-6.55714,5.20649,30.68108,30.68108,0,0,0-8.52771,21.145V681.208H625.491V655.43819C625.491,648.53367,621.69187,640.541,616.382,635.36265Z" transform="translate(-254.5 -164.38583)" fill="#2f2e41"/><circle cx="339.20981" cy="494.09996" r="22.08398" fill="#ffb8b8"/><path d="M616.36325,638.43962a2.7303,2.7303,0,0,0-1.54779-2.20454c-13.81832-6.45419-27.83361-6.28533-41.6336.50656H572.929l-.08475.34715c-2.72042,20.95732-2.33565,21.417-2.16708,21.60461a2.73,2.73,0,0,0,.96651.70359,2.64755,2.64755,0,0,0,1.07873.22513h31.50176l.07512-.35648a51.45456,51.45456,0,0,1,1.40716-5.55359A61.65932,61.65932,0,0,1,609.168,659.397l.131.22513h6.12611a2.17125,2.17125,0,0,0,.34721-.02811,2.62746,2.62746,0,0,0,1.64169-.85371C617.5826,658.56206,617.97654,658.13056,616.36325,638.43962Z" transform="translate(-254.5 -164.38583)" fill="#2f2e41"/><path d="M866.74517,693.165l-.79553-8.832-32.42054-3.49257L829.42419,692.141l-11.63928,4.36117a5.68724,5.68724,0,0,0-1.19733.61255A11.75751,11.75751,0,0,0,810.242,699.693c.26518.21942.53036.42975.79553.64.05492.05486.11875.10056.17367.14627.74062.576,1.49955,1.14285,2.26741,1.68231.20134.14626.40267.29257.61294.42968a60.831,60.831,0,0,0,5.22947,3.31887q2.57813,1.46744,5.29375,2.7063a65.45832,65.45832,0,0,0,10.304,3.70285q.74063.20574,1.48125.384c.85938.21033,1.72768.41144,2.59643.576q2.633.54859,5.33036.85943a65.34835,65.34835,0,0,0,7.96339.47544q2.72948,0,5.40357-.21026a66.61105,66.61105,0,0,0,9.30715-1.41719c.10982-.0274.21964-.04571.32946-.08226a65.83246,65.83246,0,0,0,13.60447-4.736c.66741-.32,1.33482-.64916,1.99285-.98744q2.42812-1.248,4.71786-2.688c.54866-.33828,1.08795-.68571,1.62768-1.05139C880.98044,697.86445,868.93937,693.869,866.74517,693.165Z" transform="translate(-254.5 -164.38583)" fill="#00bfa6"/><circle id="e8fe815c-89b6-45a1-8f09-a3d9b2d7a5fa" data-name="Ellipse 109" cx="593.97253" cy="487.5152" r="23.34625" fill="#a0616a"/><path id="b463a6a0-335d-4c85-b501-8d2679f87106-269" data-name="Path 696" d="M832.80236,640.5269c2.4169,2.86018,6.50628,3.66685,10.27915,3.99489,7.66249.67222,18.80362-.41793,26.29172-2.14648.53779,5.17952-.9219,10.76466,2.12806,15.02613a69.75922,69.75922,0,0,0,2.47838-15.81361,15.1462,15.1462,0,0,0-.87582-6.77287,6.22847,6.22847,0,0,0-5.30626-3.91192,1.94735,1.94735,0,0,0,.42741-2.03654,6.62182,6.62182,0,0,0-5.02016-4.974l-8.40443-2.02557s-7.88625-3.459-13.7778-3.02455c-2.735.20128-5.59436.58617-7.81,2.17106s-3.49631,4.73392-2.12036,7.06019a10.25145,10.25145,0,0,0-7.81231,6.199,16.54932,16.54932,0,0,0-.59307,7.9552,56.38522,56.38522,0,0,0,2.95623,12.50783Z" transform="translate(-254.5 -164.38583)" fill="#2f2e41"/><path d="M624.15611,441.9999a8.976,8.976,0,0,0-4.3916-5.27014,25.04331,25.04331,0,0,0-6.62354-2.32849,43.58215,43.58215,0,0,0-12.40478-1.69782c-4.18359.20557-8.46045,1.64954-11.30273,4.72632s-3.896,7.96173-1.82569,11.60285l-.229.94116a17.28487,17.28487,0,0,0,16.89306-8.32062,15.78,15.78,0,0,0,14.93506,7.25653,6.99709,6.99709,0,0,0,2.667-.76715A5.549,5.549,0,0,0,624.15611,441.9999Z" transform="translate(-254.5 -164.38583)" fill="#2f2e41"/><path d="M921.73228,171.11417h-27a2,2,0,0,1,0-4h27a2,2,0,0,1,0,4Z" transform="translate(-254.5 -164.38583)" fill="#3f3d56"/><path d="M921.73228,178.61417h-27a2,2,0,0,1,0-4h27a2,2,0,0,1,0,4Z" transform="translate(-254.5 -164.38583)" fill="#3f3d56"/><path d="M921.73228,186.11417h-27a2,2,0,0,1,0-4h27a2,2,0,0,1,0,4Z" transform="translate(-254.5 -164.38583)" fill="#3f3d56"/></svg>
+---static\src\js\vcard.js
+odoo.define('membership_profile.vcard', function (require) {
+'use strict';
+var publicWidget = require('web.public.widget');
+var core = require('web.core');
+const {Markup} = require('web.utils');
+
+var _t = core._t;
+
+publicWidget.registry.ImportVCard = publicWidget.Widget.extend({
+selector: '.o_onclick_create_vcard',
+events: {'click': '_onClick'},
+/**
+*
+*/
+_onClick: function () {
+const vcard = this.$target.closest('[data-vcard]').data('vcard');
+// this._downloadVCard(vcard, 'contact.vcf');
+this._openVCard(vcard);
+},
+/**
+*
+* @param {*} vcard
+*/
+_openVCard: function (vcard) {
+const blob = new Blob([vcard], { type: 'text/vcard' });
+const vcardURL = URL.createObjectURL(blob);
+window.open(vcardURL);
+},
+/**
+* Unused
+*/
+_downloadVCard: function(vcard, filename) {
+const vcardData = 'data:text/plain;charset=utf-8,' + encodeURIComponent(vcard);
+const element = document.createElement('a');
+element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(vcard));
+element.setAttribute('download', filename);
+element.style.display = 'none';
+document.body.appendChild(element);
+
+element.click();
+document.body.removeChild(element);
+}
+
+});
+return publicWidget.registry.ImportVCard;
+});
+---static\src\js\zoom.js
+odoo.define('membership_profile.zoom', function (require) {
+'use strict';
+var publicWidget = require('web.public.widget');
+var core = require('web.core');
+var _lt = core._lt;
+
+publicWidget.registry.ZoomQRCode = publicWidget.Widget.extend({
+selector: '.pm_zoom',
+events: {'click': '_onClick'},
+/**
+*
+*/
+_onClick: function () {
+// const modalTitle =  _lt("Scan the QR code to save contact !")
+const src = this.$target[0].currentSrc;
+const name = this.$target[0].dataset.name;
+const modalTitle = _lt(`${name}  Profile`)
+const $createModal = $(`
+<div class="modal fade" tabindex="-1" role="dialog" aria-labelledby="exampleModalCenterTitle" aria-hidden="true">
+<div class="modal-dialog modal-dialog-centered" role="document">
+<div class="modal-content">
+<div class="modal-header">
+<h5 class="modal-title">${modalTitle}</h5>
+<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+</div>
+<div class="modal-body">
+<img width="100%" src="${src}" alt="QR Code"/>
+</div>
+</div>
+</div>
+</div>`);
+$createModal.appendTo('body').modal('show');
+},
+});
+return publicWidget.registry.ZoomQRCode;
+});
+---static\src\snippets\public_member\options.js
+odoo.define('public_member.options', function (require) {
+'use strict';
+
+require('web.dom_ready');
+const { _t } = require('web.core');
+const options = require('web_editor.snippets.options');
+require('website.editor.snippets.options');
+
+options.registry.PublicMemberTitleFilter = options.Class.extend({
+events: {
+'click we-button.o_we_select_filter_member': '_onSelectFilterMember',
+},
+/**
+* @override
+*/
+init: function () {
+this._super.apply(this, arguments);
+this.dynamicFilters = {};
+},
+/**
+* @override
+*/
+start: function () {
+this.default_filter = this.$target.closest('[data-filter-member]').data('filter-member');
+this.default_filter_key = this.$target.closest('[data-filter-member-key]').data('filter-member-key');
+this._setDefaultFilter();
+this._setFilterKeyActive();
+return this._super.apply(this, arguments);
+},
+/**
+*
+* @override
+*/
+async onBuilt() {
+console.log('onBuilt');
+},
+
+/**
+*
+*/
+async _setOptionsDefaultValues() {
+if (this.dynamicFilters[selectedFilterId] &&
+!this.dynamicFilterTemplates[this.$target.get(0).dataset['templateKey']]) {
+this._setDefaultTemplate();
+}
+this.options.wysiwyg.odooEditor.observerActive();
+},
+/**
+*
+* @param {*} uiFragment
+*/
+_setDefaultFilter: function (vals) {
+if (!vals) vals = this.default_filter;
+const weSelect = this.$el.find("we-select[data-name='filter_public_member'] div we-toggler");
+// Set text filter member for toggle
+return weSelect.text(vals);
+},
+/**
+*
+* @param {*} uiFragment
+*/
+_setFilterKeyActive: function () {
+// Add class active for button have value equal filter
+this.$el.find("we-select[data-name='filter_public_member'] we-selection-items we-button[data-select-filter-member='" + this.default_filter_key + "']").addClass('active');
+},
+/**
+*
+* @override
+* @private
+*/
+_renderCustomXML: async function (uiFragment) {
+await this._super.apply(this, arguments);
+},
+/**
+*
+*/
+_onSelectFilterMember: function (event) {
+const filterMember = event.target.closest('[data-select-filter-member]');
+const value_filter = filterMember.dataset.selectFilterMember;
+return this.setDefaultFilter(value_filter)
+},
+/**
+* @override
+*/
+async setDefaultFilter(vals) {
+this.$target.get(0).dataset['filterMember'] = "Alls";
+this.$target.get(0).dataset['filterMemberKey'] = "alls";
+this.trigger_up('request_save', { reload: true, optionSelector: this.data.selector });
+// var self = this
+// await this._rpc({
+//     route: '/website/set-value-filter-member',
+//     params: {
+//         'value_field_filter_member': vals,
+//     },
+// }).then(function () {
+//     self.trigger_up('request_save', { reload: true, optionSelector: self.data.selector });
+// });
+},
+});
+});
+---static\src\snippets\s_public_member\000.js
+odoo.define('membership_profile.public_member_snippet', function (require) {
+'use strict';
+
+const publicWidget = require('web.public.widget');
+const DynamicSnippet = require('website.s_dynamic_snippet');
+const core = require('web.core');
+
+const _lt = core._lt;
+
+const PublicMemberSnippet = DynamicSnippet.extend({
+selector: '.s_public_member_snippet',
+events: {
+'input #member-search-query': '_onInput',
+'click .member-search-query': '_onSearch',
+'click .o_member_search_close': '_resetSearch'
+},
+disabledInEditableMode: false,
+/**
+*
+* @override
+*/
+init: function() {
+this._super.apply(this, arguments);
+this.currentPathname = window.location.pathname;
+this.template_key = "membership_profile.dynamic_filter_template_public_member_card";
+this.committee_template_key = false;
+this.committee_id = false;
+this.committee_data = {level_1: [], level_2: [], level_3: []};
+this.committee_data_end = null;
+this.committee_data_start = null;
+this.committee_name = null;
+this.searchTerm = null;
+this.not_found = false;
+this._onInput = _.debounce(this._onInput, 400);
+},
+/**
+* @private
+*/
+_onInput: function () {
+var searchBar = document.getElementById("member-search-query");
+var self = this;
+// console.log('Input SearchBar', searchBar);
+searchBar.addEventListener("keypress", function(event) {
+// If the user presses the "Enter" key on the keyboard
+if (event.key === "Enter") {
+// console.log('Search bar enter')
+// event.preventDefault();
+self._onSearch(event);
+}
+});
+},
+
+/**
+* @private
+*/
+_onSearch: function (ev) {
+// console.log('Searching .....')
+ev.preventDefault();
+this.$input_member = this.$el.find("input#member-search-query");
+var wasEmpty = !this.$input_member.val();
+if (!wasEmpty) {
+this.searchTerm = this.$input_member.val().trim();
+// console.log('Value search', this.searchTerm);
+this._renderSearchMember()
+};
+},
+
+_resetSearch: function () {
+this.searchTerm = null;
+this._renderSearchMember();
+},
+
+_renderSearchMember: async function () {
+await this._fetchData();
+// console.log('Fetching data and render')
+return this._render();
+},
+
+/**
+* Method to be overridden in child components if additional configuration elements
+* are required in order to fetch data.
+* @private
+*/
+_isConfigComplete: function () {
+return this._super.apply(this, arguments);
+},
+/**
+* Method to be overridden in child components in order to prepare QWeb
+* options.
+* @private
+*/
+_getQWebRenderOptions: function () {
+const options = this._super(...arguments);
+options.back_url = this.currentPathname;
+// options.registered_text = _lt('Registered');
+// options.go_to_website_text = _lt('Go to website');
+// options.save_contact_text = _lt('Save Contact');
+options.registered_text = _lt('Ngành nghề');
+options.go_to_website_text = _lt('Đến website');
+options.save_contact_text = _lt('Lưu liên hệ');
+options.is_committee_template = this.committee_template_key;
+options.committee_name = this.committee_name;
+options.committee_data_end = this.committee_data_end;
+options.committee_data_start = this.committee_data_start;
+options.not_found = this.not_found;
+options.search = false;
+if (this.searchTerm !== null) {
+if (this.searchTerm.length > 0){
+options.search = true;
+if (this.not_found) {
+options.search_count = 0;
+} else {
+options.search_count = this.data.length;
+}
+}
+}
+// console.log('OPTIONS', options);
+return options;
+},
+/**
+* @override
+*/
+async _fetchData() {
+const searchDomain = this._getSearchDomain();
+if (!this.committee_template_key){
+const members = await this._rpc({
+'route': '/snippets/partners/members',
+'params': {
+'search': this.searchTerm,
+'category_id': searchDomain,
+},
+});
+this.data = members['partners'];
+if (this.data.length < 1 && this.searchTerm && this.searchTerm.length > 1) {
+this.data = [{messages: _lt("Không thể tìm thấy kết quả tìm kiếm cho ") + "'" + this.searchTerm + "'"}];
+this.not_found = true;
+}
+else {
+this.not_found = false;
+}
+// if (this.data.length > 0 && this.not_found === true) this.not_found = false;
+}
+else {
+const members = await this._rpc({
+'route': '/snippet/member_committee/' + this.committee_id,
+'params': {
+'category_id': searchDomain,
+},
+});
+this.data = members['data']
+this.committee_data_end = members['committee_data_end']
+this.committee_data_start = members['committee_data_start']
+this.committee_name = members['committee_name']
+}
+},
+/**
+* @override
+* @private
+*/
+_getSearchDomain: function () {
+const searchDomain = this._super.apply(this, arguments);
+const filterByTagIds = JSON.parse(this.$el.get(0).dataset.filterByTagIds || '[]');
+const filterByCommitteeIds = JSON.parse(this.$el.get(0).dataset.filterByCommitteeId || -1);
+
+if (filterByTagIds.length > 0) {
+searchDomain.push(['category_id', 'in', filterByTagIds]);
+}
+// var searchTerm = null
+// if (window.location.search.length > 0){
+//     searchTerm = window.location.search;
+// }
+// if (searchTerm) {
+//     const urlParams = new URLSearchParams(window.location.search);
+//     const obj = {};
+
+//     for (const key of urlParams.keys()) {
+//         obj[key] = urlParams.get(key);
+//     }
+//     if (obj.search.length > 0){
+//         this.searchTerm = obj.search.trim();
+//     }
+// }
+if (filterByCommitteeIds != -1) {
+this.committee_template_key = true;
+this.committee_id = filterByCommitteeIds;
+}
+return searchDomain;
+},
+});
+
+publicWidget.registry.dynamic_snippet = PublicMemberSnippet;
+
+return PublicMemberSnippet;
+
+});
+---static\src\snippets\s_public_member\000.xml
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+<t t-name="membership_profile.dynamic_filter_template_public_member_card">
+<div class="container mb32">
+<t t-set="colClass" t-value="'d-flex flex-grow-0 flex-shrink-0 col-' + Math.trunc(12 / chunkSize).toString()"/>
+<t t-set="rowIndexGenerator" t-value="Array.from(Array(Math.ceil(data.length/chunkSize)).keys())"/>
+<t t-set="colIndexGenerator" t-value="Array.from(Array(chunkSize).keys())"/>
+<t t-set="opt_publice_member_show_social" t-value="true"/>
+<t t-set="opt_publice_member_show_company" t-value="true"/>
+<div class="">
+<t t-foreach="colIndexGenerator" t-as="colIndex">
+<t t-if="(rowIndex * chunkSize + colIndex) &lt; data.length">
+<div t-attf-class="#{colClass}">
+<t t-out="data[rowIndex * chunkSize + colIndex]"/>
+</div>
+</t>
+</t>
+<!-- RENDER PARTNER -->
+<t t-if="is_committee_template">
+<t t-foreach="data" t-as="partner_data">
+<section class="s_heading_1 pt16 pb16">
+<div class="container">
+<div class="row s_col_no_bgcolor s_nb_column_fixed">
+<div class="col-12 tp-heading-container text-center tp-line-thickness-normal tp-line-width-normal tp-line-bottom">
+<t t-if="partner_data['template_specific'] === 'manager'">
+<h2 class="text-uppercase text-o-color-1 fw-bold mb-3"><t t-esc="partner_data['template_name']" /><strong class="text-o-color-5" t-esc="' ' + committee_name"/></h2>
+<p class="lead mb-0">(<t t-esc="committee_data_start" /> - <t t-esc="committee_data_end" />)</p>
+</t>
+<t t-elif="partner_data['template_specific'] === 'delegate'" >
+<h2 class="text-uppercase text-o-color-1 fw-bold mb-3"><t t-esc="partner_data['template_name']" /><strong class="text-o-color-5">VIỆT NAM</strong> </h2>
+</t>
+<t t-else="">
+<h2 class="text-uppercase text-o-color-1 fw-bold mb-3"><t t-esc="partner_data['template_name']" /></h2>
+</t>
+</div>
+</div>
+</div>
+</section>
+<div class="container mb32">
+<div t-attf-class="row justify-content-center #{partner_data['template_specific'] == 'delegate' and 's_public_member_snippet_temp4' or ''}">
+<t t-foreach="partner_data['partners']" t-as="partner">
+<div t-attf-class="col-lg-4 #{'order-' + partner['committee']['order']}">
+<div t-attf-class="card #{partner['committee']['raise_in_tmp'] and 'bg-primary o_raise_tmp_scale' or ''} w-100 text-center mb-5 border pm_rounded shadow-sm o_wprofile_pointer pm_card">
+<div class="">
+<div class="card-body pm_gradient" >
+<t t-if="partner['parent']">
+<div t-attf-class="gap-2 justify-content-sm-center s_parent_member">
+<ul class="d-flex list-unstyled mt-auto">
+<li class="pe-2">
+<img class="rounded-circle img-fluid border border-primary border-5 bg-white"
+style="width: 64px; height: 64px; object-fit: cover; cursor: pointer;"
+t-att-src="'/web/image/res.partner/' + partner['parent']['id'] + '/avatar_512/'"/>
+</li>
+<li class="d-flex align-items-center me-3">
+<small class="text-center text-light" t-esc="partner['parent']['name']" />
+</li>
+</ul>
+</div>
+</t>
+<div class="d-inline-block position-relative" t-attf-onclick="location.href='/partners/members/#{partner['slug']}/?back_url=#{back_url}';">
+<img class="s_member_avatar"
+t-att-src="'/web/image/res.partner/' + partner['id'] + '/avatar_512/'"/>
+</div>
+
+<div class="mt-2">
+<t t-if="partner['committee']">
+<strong t-attf-class="#{partner['committee']['raise_in_tmp'] and 'badge bg-secondary text-primary' or 'text-primary'} text-uppercase" t-esc="partner['committee']['name']"/>
+</t>
+</div>
+<h4 t-attf-class="mt-2 mb-0 s_member_name #{partner['committee']['raise_in_tmp'] and 'text-black' or ''}"
+t-esc="partner['name']" t-attf-onclick="location.href='/partners/members/#{partner['slug']}/?back_url=#{back_url}';" style="cursor: pointer;"></h4>
+<div class="s_member_business">
+<t t-if="partner['registered_business']">
+<span title="Registered" t-esc="registered_text + ':'" t-attf-class="mt-2 mb-0 #{partner['committee']['raise_in_tmp'] and 'text-black' or ''}" />
+<strong t-attf-class="#{partner['committee']['raise_in_tmp'] and 'text-black' or 'text-muted '}" t-esc="partner['registered_business']"/>
+</t>
+<t t-else="">
+<span title="Registered" t-esc="registered_text + ':'" t-attf-class="mt-2 mb-0 #{partner['committee']['raise_in_tmp'] and 'text-black' or ''}" />
+<strong t-attf-class="#{partner['committee']['raise_in_tmp'] and 'text-black' or 'text-muted '}">(N/A)</strong>
+</t>
+</div>
+<t t-if="partner['parent']">
+<div class="d-none s_second_member_parent">
+<small><p class="text-center text-muted" t-esc="partner['parent']['name']" /></small>
+</div>
+</t>
+</div>
+</div>
+<div class="gap-2 d-sm-flex justify-content-sm-center">
+<div t-attf-class="s_social_media text-center o_not_editable" data-snippet="s_social_media" data-name="Social Media" contenteditable="false">
+<t t-if="partner['socials']">
+<t t-foreach="partner['socials']" t-as="social">
+<t t-if="!['zalo', 'tiktok'].includes(social['type'])">
+<a t-attf-href="{{ social['link'] }}" t-attf-class="s_social_media_{{social['type']}}" target="_blank">
+<i t-attf-class="fa fa-{{ social['type'] }} m-1"/>
+</a>
+</t>
+<t t-else="">
+<t t-if="social['type'] === 'zalo'">
+<a t-attf-href="{{ social['link'] }}" t-attf-class="s_social_media_{{social['type']}}" target="_blank">
+<img src="/membership_profile/static/src/img/zalo.svg"/>
+</a>
+</t>
+<t t-if="social['type'] === 'tiktok'">
+<a t-attf-href="{{ social['link'] }}" t-attf-class="s_social_media_{{social['type']}}" target="_blank">
+<img src="/membership_profile/static/src/img/tiktok.svg"/>
+</a>
+</t>
+</t>
+</t>
+</t>
+</div>
+</div>
+<div class="row mx-0 text-nowrap s_member_contact">
+<div class="col-8">
+<div class="col-sm-12 p-2">
+<a t-att-data-vcard="partner['vcard']"
+t-attf-class="o_onclick_create_vcard w-100 btn #{partner['committee']['raise_in_tmp'] and 'btn-custom text-o-color-1 bg-o-color-4' or 'border border-3 border-primary'} pm_rounded">
+<i class="fa fa-share-alt text-primary"/>
+<span class="text-primary" title="Save Contact" t-esc="save_contact_text" />
+</a>
+</div>
+<div class="col-sm-12 p-2">
+<a target='_blank' t-attf-href="{{ partner['website'] }}"
+t-attf-class="w-100 btn #{partner['committee']['raise_in_tmp'] and 'btn-custom text-o-color-1 bg-o-color-4' or 'btn-primary'} pm_rounded" title="Go to website">
+<i t-attf-class="fa fa-globe #{partner['committee']['raise_in_tmp'] and 'text-primary' or 'text-white'}"/>
+<t t-esc="go_to_website_text" />
+</a>
+</div>
+</div>
+<div class="col-4 p-2 d-sm-flex justify-content-sm-center">
+<div class="border border-1 rounded">
+<img width="100%" class="pm_zoom"
+t-attf-data-name="{{ partner['name'] }}"
+t-attf-src="data:image/png;base64,{{ partner['website_qr'] }}" alt="QR Code"/>
+</div>
+</div>
+</div>
+<div class="d-flex flex-row align-items-center p-2 s_member_address">
+<ul class="d-flex list-unstyled mt-auto">
+<li t-attf-class="d-flex align-items-center me-3 #{partner['committee']['raise_in_tmp'] and 'text-white' or ''}">
+<span class="bi me-2 pm_location_icon_circle"><i class="fa fa-map-marker"></i></span>
+<small t-esc="partner['address']"/>
+</li>
+</ul>
+</div>
+</div>
+</div>
+</t>
+</div>
+</div>
+</t>
+</t>
+<t t-else="">
+<div class="mb-5 o_member_search_bar">
+<div class="input-group input-group-lg">
+<input type="search" name="search" id="member-search-query" class="form-control" placeholder="Nhập tên, tên công ty"/>
+<button class="member-search-query btn oe_search_button border border-dark pe-md-5 px-md-5" aria-label="Search" title="Search">
+<i class="oi oi-search"/>
+<span t-if="search" class="oe_search_found">
+<small>(<t t-out="search_count or 0"/> kết quả)</small>
+<button type="button" class="btn-close o_member_search_close" aria-label="Close"></button>
+</span>
+</button>
+</div>
+</div>
+<t t-if="not_found"><span t-esc="data[0]['messages']"/></t>
+<t t-else="">
+<div class="row justify-content-center">
+<t t-foreach="data" t-as="partner">
+<div class="col-lg-4">
+<div class="card w-100 text-center mb-5 border pm_rounded shadow-sm o_wprofile_pointer pm_card">
+<div class="">
+<div class="card-body pm_gradient" >
+<t t-if="partner['parent']">
+<div t-attf-class="gap-2 justify-content-sm-center s_parent_member">
+<ul class="d-flex list-unstyled mt-auto">
+<li class="pe-2">
+<img class="rounded-circle img-fluid border border-primary border-5 bg-white"
+style="width: 64px; height: 64px; object-fit: cover; cursor: pointer;"
+t-att-src="'/web/image/res.partner/' + partner['parent']['id'] + '/avatar_512/'"/>
+</li>
+<li class="d-flex align-items-center me-3">
+<small class="text-center text-light" t-esc="partner['parent']['name']" />
+</li>
+</ul>
+</div>
+</t>
+<div class="d-inline-block position-relative" t-attf-onclick="location.href='/partners/members/#{partner['slug']}/?back_url=#{back_url}';">
+<img class="s_member_avatar"
+t-att-src="'/web/image/res.partner/' + partner['id'] + '/avatar_512/'"/>
+</div>
+<h4 class="mt-2 mb-0 s_member_name" t-esc="partner['name']" t-attf-onclick="location.href='/partners/members/#{partner['slug']}/?back_url=#{back_url}';" style="cursor: pointer;"></h4>
+<div class="">
+<t t-if="partner['function']">
+<strong class="text-muted" t-esc="partner['function']"/>
+</t>
+<t t-else="">
+<strong class="text-muted">(N/A)</strong>
+</t>
+</div>
+<div class="s_member_business">
+<t t-if="partner['registered_business']">
+<span title="Registered" t-esc="registered_text" />: <strong class="text-muted" t-esc="partner['registered_business']"/>
+</t>
+<t t-else="">
+<span title="Registered" t-esc="registered_text" />: <strong class="text-muted">(N/A)</strong>
+</t>
+</div>
+<t t-if="partner['parent']">
+<div class="d-none s_second_member_parent">
+<small><p class="text-center text-muted" t-esc="partner['parent']['name']" /></small>
+</div>
+</t>
+</div>
+</div>
+<div class="gap-2 d-sm-flex justify-content-sm-center">
+<div t-attf-class="s_social_media text-center o_not_editable" data-snippet="s_social_media" data-name="Social Media" contenteditable="false">
+<t t-if="partner['socials']">
+<t t-foreach="partner['socials']" t-as="social">
+<t t-if="!['zalo', 'tiktok'].includes(social['type'])">
+<a t-attf-href="{{ social['link'] }}" t-attf-class="s_social_media_{{social['type']}}" target="_blank">
+<i t-attf-class="fa fa-{{ social['type'] }} m-1"/>
+</a>
+</t>
+<t t-else="">
+<t t-if="social['type'] === 'zalo'">
+<a t-attf-href="{{ social['link'] }}" t-attf-class="s_social_media_{{social['type']}}" target="_blank">
+<img src="/membership_profile/static/src/img/zalo.svg"/>
+</a>
+</t>
+<t t-if="social['type'] === 'tiktok'">
+<a t-attf-href="{{ social['link'] }}" t-attf-class="s_social_media_{{social['type']}}" target="_blank">
+<img src="/membership_profile/static/src/img/tiktok.svg"/>
+</a>
+</t>
+</t>
+</t>
+</t>
+</div>
+</div>
+<div class="row mx-0 text-nowrap s_member_contact">
+<div class="col-8">
+<div class="col-sm-12 p-2">
+<a t-att-data-vcard="partner['vcard']" class="o_onclick_create_vcard w-100 btn border border-3 border-primary pm_rounded">
+<i class="fa fa-share-alt text-primary"/>
+<span class="text-primary" title="Save Contact" t-esc="save_contact_text" />
+</a>
+</div>
+<div class="col-sm-12 p-2">
+<a target='_blank' t-attf-href="{{ partner['website'] }}" class="w-100 btn btn-primary pm_rounded" title="Go to website">
+<i class="fa fa-globe text-white"/>
+<t t-esc="go_to_website_text" />
+</a>
+</div>
+</div>
+<div class="col-4 p-2 d-sm-flex justify-content-sm-center">
+<div class="border border-1 rounded">
+<img width="100%" class="pm_zoom"
+t-attf-data-name="{{ partner['name'] }}"
+t-attf-src="data:image/png;base64,{{ partner['website_qr'] }}" alt="QR Code"/>
+</div>
+</div>
+</div>
+<div class="d-flex flex-row align-items-center p-2 s_member_address">
+<ul class="d-flex list-unstyled mt-auto">
+<li class="d-flex align-items-center me-3">
+<span class="bi me-2 pm_location_icon_circle"><i class="fa fa-map-marker"></i></span>
+<small t-esc="partner['address']"/>
+</li>
+</ul>
+</div>
+</div>
+</div>
+</t>
+</div>
+</t>
+</t>
+</div>
+</div>
+</t>
+</templates>
+---static\src\snippets\s_public_member\options.js
+odoo.define('membership_profile.s_public_member_options', function (require) {
+'use strict';
+
+const options = require('web_editor.snippets.options');
+const dynamicSnippetOptions = require('website.s_dynamic_snippet_options');
+
+
+const DynamicPublicMemberSnippet = dynamicSnippetOptions.extend({
+/**
+*
+* @override
+*/
+init: function () {
+this._super.apply(this, arguments);
+this.modelNameFilter = 'res.partner';
+this.public_members = {};
+this.default_filter_committee = '/'
+this.committeeIds = {}
+},
+
+/**
+* @override
+*/
+start: function () {
+return this._super.apply(this, arguments);
+},
+
+async willStart() {
+const _super = this._super.bind(this);
+this.tagIDs = JSON.parse(this.$target[0].dataset.filterByTagIds || '[]');
+const tags = await this._rpc({
+model: 'res.partner.category',
+method: 'search_read',
+domain: [],
+fields: ['id', 'display_name'],
+});
+this.allTagsByID = {};
+for (const tag of tags) {
+this.allTagsByID[tag.id] = tag;
+}
+
+return _super(...arguments);
+},
+
+_fetchCommittees: function() {
+return this._rpc({
+model: 'membership.committee',
+method: 'search_read',
+domain: [],
+fields: ['id', 'name'],
+});
+
+},
+/**
+*
+* @override
+* @private
+*/
+_renderCustomXML: async function (uiFragment) {
+await this._super.apply(this, arguments);
+await this._setDefaultFilterCommittee(uiFragment);
+},
+
+_setDefaultFilterCommittee: async function (uiFragment) {
+if (!Object.keys(this.committeeIds).length) {
+const committeeList = await this._fetchCommittees();
+this.committeeIds = {}
+for (const committee of committeeList) {
+this.committeeIds[committee.id] = committee;
+}
+}
+const committeeSelectorEl = uiFragment.querySelector('[data-name="committee_id_opt"]');
+// Set text filter member for toggle
+return this._renderSelectUserValueWidgetButtons(committeeSelectorEl, this.committeeIds);
+},
+
+/**
+* @override
+* @param {*} previewMode
+* @param {*} widgetValue
+* @param {*} params
+*/
+selectDataAttribute: function (previewMode, widgetValue, params) {
+this._super.apply(this, arguments);
+},
+
+//--------------------------------------------------------------------------
+// Private
+//--------------------------------------------------------------------------
+/**
+* Fetches public members.
+* @private
+* @returns {Promise}
+*/
+_fetchPublicMembers: async function () {
+const members = await this._rpc({
+'route': '/snippets/partners/members',
+'params': {},
+});
+return members;
+},
+/**
+* @override
+*/
+_fetchDynamicFilters: async function() {
+this._defaultFilterId = 8;
+},
+/**
+* @override
+*/
+_fetchDynamicFilterTemplates: async function() {
+this._defaultTemplateKey = 'membership_profile.dynamic_filter_template_public_member_card';
+},
+
+_renderPublicMemberSelector: async function (uiFragment) {
+if (!Object.keys(this.public_members).length) {
+const membersList = await this._fetchPublicMembers();
+this.public_members = membersList['partners'];
+}
+const memberSelectorEl = uiFragment.querySelector('[data-name="member_tag_opt"]');
+const _render = await this._renderSelectUserValueWidgetButtons(memberSelectorEl, this.public_members);
+return _render;
+},
+
+setTags(previewMode, widgetValue, params) {
+this.tagIDs = JSON.parse(widgetValue).map(tag => tag.id);
+this.selectDataAttribute(previewMode, JSON.stringify(this.tagIDs), params);
+},
+/**
+* @override
+*/
+async _computeWidgetState(methodName, params) {
+if (methodName === 'setTags') {
+return JSON.stringify(this.tagIDs.map(id => this.allTagsByID[id]));
+}
+return this._super(...arguments);
+},
+});
+
+options.registry.public_member_snippet = DynamicPublicMemberSnippet;
+
+return DynamicPublicMemberSnippet;
+});
+---tests\common.py
+# -*- coding: utf-8 -*-
+
+import datetime
+from dateutil.relativedelta import relativedelta
+
+from odoo.addons.account.tests.common import AccountTestInvoicingCommon
+
+
+class TestMembershipCommon(AccountTestInvoicingCommon):
+
+@classmethod
+def setUpClass(cls, chart_template_ref=None):
+super().setUpClass(chart_template_ref=chart_template_ref)
+
+# Test memberships
+cls.membership_1 = cls.env['product.product'].create({
+'membership': True,
+'membership_product_tmp_type': 'recurring',
+'number_date': 90,
+'start_recurring_after_assigned': False,
+'membership_date_from': datetime.date.today() + relativedelta(days=-2),
+'membership_date_to': datetime.date.today() + relativedelta(months=1),
+'name': 'Basic Limited',
+'type': 'service',
+'list_price': 100.00,
+})
+
+# Test people
+cls.partner_1 = cls.env['res.partner'].create({
+'name': 'Ignasse Reblochon',
+})
+cls.partner_2 = cls.env['res.partner'].create({
+'name': 'Martine Poulichette',
+'free_member': True,
+})
+
+cls.committee_1 = cls.env['membership.committee'].create({
+'name': 'Committee 1',
+'date_start': datetime.date.today() + relativedelta(days=-2),
+'date_end': datetime.date.today() + relativedelta(months=1),
+})
+
+cls.commitee_tmp_1 = cls.env['membership.committee.tmp'].create({
+'name': 'Committee tmp 1',
+'description': 'Des Template 1',
+'level_committee': 'lv1',
+'committee_ids': cls.committee_1,
+})
+
+cls.commitee_tmp_2 = cls.env['membership.committee.tmp'].create({
+'name': 'Committee tmp 2',
+'description': 'Des Template 2',
+'level_committee': 'lv1',
+'committee_ids': cls.committee_1,
+})
+
+cls.commitee_tmp_3 = cls.env['membership.committee.tmp'].create({
+'name': 'Committee tmp 3',
+'description': 'Des Template 3',
+'level_committee': 'lv1',
+'committee_ids': cls.committee_1,
+})
+---tests\test_committee.py
+# -*- coding: utf-8 -*-
+
+import json
+import datetime
+from dateutil.relativedelta import relativedelta
+from unittest.mock import patch
+from werkzeug.urls import url_encode, url_join
+
+from odoo import _
+
+from odoo.addons.membership.tests.common import TestMembershipCommon
+from odoo.tests import tagged
+from odoo.tests.common import TransactionCase, HttpCase, tagged
+
+# python odoo-bin -c odoo.conf --log-level=test --test-enable --stop-after-init --test-tags /membership_profile:TestMemberCommittee.test_get_committee
+
+
+@tagged('post_install', '-at_install')
+class TestMemberCommittee(HttpCase):
+def setUp(self, *args, **kwargs):
+super().setUp(*args, **kwargs)
+self.user = self.env.ref('base.public_user')
+
+self.partner_1 = self.env['res.partner'].create({
+'name': 'Ignasse Reblochon',
+})
+self.partner_2 = self.env['res.partner'].create({
+'name': 'Martine Poulichette',
+'free_member': True,
+})
+
+self.committee_1 = self.env['membership.committee'].create({
+'name': 'Committee 1',
+'date_start': datetime.date.today() + relativedelta(days=-2),
+'date_end': datetime.date.today() + relativedelta(months=1),
+})
+
+self.commitee_tmp_1 = self.env['membership.committee.tmp'].create({
+'name': 'Committee tmp 1',
+'description': 'Des Template 1',
+'committee_ids': self.committee_1,
+})
+
+self.commitee_tmp_2 = self.env['membership.committee.tmp'].create({
+'name': 'Committee tmp 2',
+'description': 'Des Template 2',
+'committee_ids': self.committee_1,
+'raise_in_template': True,
+})
+
+self.commitee_tmp_3 = self.env['membership.committee.tmp'].create({
+'name': 'Committee tmp 3',
+'description': 'Des Template 3',
+'committee_ids': self.committee_1,
+})
+
+self.partner_member_committee_1 = self.env['membership.partner.committee'].create({
+'partner_id': self.partner_1.id,
+'committee_id': self.committee_1.id,
+'committee_tmp_id': self.commitee_tmp_1.id,
+})
+
+self.partner_member_committee_2 = self.env['membership.partner.committee'].create({
+'partner_id': self.partner_2.id,
+'committee_id': self.committee_1.id,
+'committee_tmp_id': self.commitee_tmp_2.id,
+})
+
+def test_get_committee(self):
+url = url_join(self.base_url(), '/snippet/member_committee/{}'.format(self.committee_1.id))
+res = self.opener.get(url, json={})
+self.assertEqual(res.status_code, 200)
+data_response = json.loads(res.text)
+print(data_response)
+self.assertTrue('result' in data_response)
+# self.assertTrue('level_1' in data_response['result'])
+# self.assertTrue('level_2' in data_response['result'])
+# self.assertTrue('level_3' in data_response['result'])
+
+def test_create_membership_resume_type(self):
+committee = self.partner_member_committee_1
+partner = self.partner_1
+
+self.assertEqual(committee.partner_id.id, partner.id)
+
+line_type = self.env.ref('membership_profile.resume_type_join_committee', raise_if_not_found=True)
+self.assertTrue(partner.membership_resume_ids.filtered(lambda e: e.line_type_id.id == line_type.id).exists())
+print('PASS')
+---tests\test_membership.py
+# -*- coding: utf-8 -*-
+
+import datetime
+import logging
+from dateutil.relativedelta import relativedelta
+from unittest.mock import patch
+
+from odoo import _
+
+from odoo.addons.membership.tests.common import TestMembershipCommon
+from odoo.tests import tagged
+from odoo.tests.common import TransactionCase, HttpCase, tagged
+
+LOG = logging.getLogger(__name__)
+
+# AIzaSyC083DDlFDAW4hVQdtt-TJnJicdM6unvlY
+
+
+@tagged('post_install', '-at_install')
+class TestMemberShipCustom(HttpCase):
+def setUp(self, *args, **kwargs):
+super().setUp(*args, **kwargs)
+self.user = self.env.ref('base.public_user')
+self.periodict = self.env['product.periodic.template'].create({
+'periodicity': 'quarterly'
+})
+self.membership_1 = self.env['product.product'].create({
+'membership': True,
+'membership_date_from': datetime.date.today() + relativedelta(days=-2),
+'membership_date_to': datetime.date.today() + relativedelta(months=1),
+'name': 'Basic Limited',
+'membership_product_tmp_type': 'recurring',
+'periodic_id': self.periodict.id,
+'type': 'service',
+'list_price': 100.00,
+})
+self.membership_2 = self.env['product.product'].create({
+'membership': True,
+'membership_date_from': datetime.date.today() + relativedelta(days=-2),
+'membership_date_to': datetime.date.today() + relativedelta(months=1),
+'name': 'Basic Limited',
+'membership_product_tmp_type': 'duration',
+'type': 'service',
+'list_price': 100.00,
+})
+self.partner = self.env['res.partner'].create({
+'name': 'Test partner 1', 'is_published': False,
+})
+
+def test_membership_product_recurring(self):
+membership_1 = self.env['product.product'].create({
+'membership': True,
+'membership_date_from': None,
+'membership_date_to': None,
+'name': 'Basic Limited',
+'membership_product_tmp_type': 'recurring',
+'periodic_id': self.periodict.id,
+'type': 'service',
+'list_price': 100.00,
+})
+self.assertEqual(membership_1.membership_date_to, datetime.date.today())
+self.assertEqual(membership_1.membership_date_from, datetime.date.today())
+print('PASSED')
+
+def test_membership_product_duration(self):
+membership_1 = self.env['product.product'].create({
+'membership': True,
+'membership_date_from': datetime.date.today() + relativedelta(days=-2),
+'membership_date_to': datetime.date.today() + relativedelta(days=10),
+'name': 'Basic Limited',
+'membership_product_tmp_type': 'duration',
+'periodic_id': self.periodict.id,
+'type': 'service',
+'list_price': 100.00,
+})
+self.assertEqual(membership_1.membership_date_from, datetime.date.today() + relativedelta(days=-2))
+self.assertEqual(membership_1.membership_date_to,datetime.date.today() + relativedelta(days=10))
+print('PASSED')
+
+def test_extenstion_membership(self):
+self.authenticate('admin', 'admin')
+partner = self.partner
+# Create duration membership
+invoice = partner.create_membership_invoice(self.membership_2, 75.0)
+invoice.action_post()
+line_type = self.env.ref('membership_profile.resume_type_join_membership', raise_if_not_found=True)
+self.assertTrue(len(partner.membership_resume_ids.filtered(lambda e: e.line_type_id.id == line_type.id)) > 0)
+self.assertEqual(
+self.partner.membership_start,
+self.membership_2.membership_date_from,
+'membership: date from membership product recurring should be equal invoice date'
+)
+self.assertEqual(
+self.partner.membership_stop,
+self.membership_2.membership_date_to,
+'membership: date to membership product recurring should be equal %s' % (invoice.invoice_date + self.periodict._get_delta_periodict())
+)
+# Extend Membership recurring
+invoice_recurring = partner.create_membership_invoice(self.membership_1, 0.75)
+invoice_recurring.action_post()
+line_type = self.env.ref('membership_profile.resume_type_extend_membership', raise_if_not_found=True)
+self.assertTrue(partner.membership_resume_ids.filtered(lambda e: e.line_type_id.id == line_type.id).exists())
+
+self.assertEqual(len(partner.membership_resume_ids), 2)
+print(partner._get_membership_resume())
+
+def test_membership_date_product_type_recurring(self):
+self.authenticate("admin", "admin")
+partner = self.partner
+invoice = partner.create_membership_invoice(self.membership_1, 75.0)
+self.assertEqual(
+invoice.state, 'draft',
+'membership: new subscription should create a draft invoice')
+self.assertEqual(
+invoice.invoice_line_ids[0].product_id, self.membership_1,
+'membership: new subscription should create a line with the membership as product')
+
+self.assertEqual(
+self.partner.membership_state, 'waiting',
+'membership: new membership should be in waiting state')
+invoice.action_post()
+self.assertEqual(
+self.partner.membership_start,
+invoice.invoice_date,
+'membership: date from membership product recurring should be equal invoice date'
+)
+self.assertEqual(
+self.partner.membership_stop,
+invoice.invoice_date + self.periodict._get_delta_periodict(),
+'membership: date to membership product recurring should be equal %s' % (invoice.invoice_date + self.periodict._get_delta_periodict())
+)
+self.assertTrue(partner.is_published)
+print('PASSED')
+
+def test_membership_date_product_type_duration(self):
+self.authenticate("admin", "admin")
+partner = self.partner
+invoice = partner.create_membership_invoice(self.membership_2, 75.0)
+self.assertEqual(
+invoice.state, 'draft',
+'membership: new subscription should create a draft invoice')
+self.assertEqual(
+invoice.invoice_line_ids[0].product_id, self.membership_2,
+'membership: new subscription should create a line with the membership as product')
+
+self.assertEqual(
+self.partner.membership_state, 'waiting',
+'membership: new membership should be in waiting state')
+invoice.action_post()
+self.assertEqual(
+self.partner.membership_start,
+self.membership_2.membership_date_from,
+'membership: date from membership product recurring should be equal invoice date'
+)
+self.assertEqual(
+self.partner.membership_stop,
+self.membership_2.membership_date_to,
+'membership: date to membership product recurring should be equal %s' % (invoice.invoice_date + self.periodict._get_delta_periodict())
+)
+print('PASSED')
+---tests\__init__.py
+from . import test_membership
+from . import test_committee
+---views\partner_view.xml
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+<record id="view_partner_published_form" model="ir.ui.view">
+<field name="name">res.partner.published.form.inherit</field>
+<field name="model">res.partner</field>
+<field name="inherit_id" ref="base.view_partner_form"/>
+<field name="arch" type="xml">
+<xpath expr="//field[@name='function']" position="before">
+<field name="website_published" widget="boolean_toggle" />
+<field name="registered_business" attrs="{'invisible': [('is_company', '=', False), ('specific_business', '=', False)]}" />
+<field name="profile_tmp" attrs="{'invisible': [('is_company', '=', True)]}" />
+<field name="specific_business" widget="boolean_toggle" string="Business Delegate" attrs="{'invisible': [('is_company', '=', True)]}" />
+</xpath>
+<xpath expr="//notebook/page[@name='membership']//field[@name='free_member']" position="after">
+<field name="show_journal_committee" widget="boolean_toggle" string="Show membership resume in profile"/>
+</xpath>
+<xpath expr="//notebook/page[@name='membership']" position="inside">
+<div class="row">
+<div class="o_hr_skills_editable o_hr_skills_group o_group_resume col-lg-7 d-flex flex-column">
+<separator string="Membership Resume"/>
+<!-- This field uses a custom tree view rendered by the 'resume_one2many' widget.
+Adding fields in the tree arch below makes them accessible to the widget
+TODO: extract widget resume_one2many from module hr_skills
+-->
+<field mode="tree" nolabel="1" name="membership_resume_ids" widget="resume_one2many">
+<tree>
+<field name="line_type_id"/>
+<field name="name"/>
+<field name="description"/>
+<field name="date_start"/>
+<field name="date_end"/>
+<field name="display_type" invisible="1"/>
+</tree>
+</field>
+</div>
+<div class="col-lg-5 d-flex flex-column">
+<separator string="Committees"/>
+<field name="committee_ids">
+<kanban>
+<field name="committee_tmp_id" />
+<field name="committee_id" />
+<templates>
+<t t-name="kanban-box">
+<div t-attf-class="oe_kanban_card oe_kanban_global_click">
+<div class="row mb4">
+<div class="col-6">
+<strong><span><t t-esc="record.committee_tmp_id.value"/></span></strong>
+</div>
+<div class="col-6">
+<span><t t-esc="record.committee_id.value"/></span>
+</div>
+</div>
+</div>
+</t>
+</templates>
+</kanban>
+</field>
+</div>
+</div>
+</xpath>
+<notebook position="inside">
+<page name="member_social_links" string="Social Links">
+<field name="social_ids">
+<tree string="Social Links" editable="bottom">
+<field name="social_type"/>
+<field name="link" />
+</tree>
+</field>
+</page>
+<page name="member_about_me" string="About me">
+<field name="website_short_description" widget="html"/>
+</page>
+</notebook>
+</field>
+</record>
+
+<record id="generator_image_qr_info" model="ir.actions.server">
+<field name="name">Refresh Image QR code</field>
+<field name="model_id" ref="base.model_res_partner"/>
+<field name="binding_model_id" ref="base.model_res_partner"/>
+<field name="binding_view_types">form</field>
+<field name="state">code</field>
+<field name="code">action = records.refresh_new_imge_qr_code()</field>
+</record>
+
+<!-- MEMBERSHIP COMMITTEE -->
+
+<!-- Tree View Committee-->
+<record id="membership_committee_tree_view" model="ir.ui.view">
+<field name="name">membership.committee.tree</field>
+<field name="model">membership.committee</field>
+<field name="arch" type="xml">
+<tree string="Committee" editable="bottom">
+<field name="name" />
+<field name="date_start" />
+<field name="date_end" />
+</tree>
+</field>
+</record>
+
+<record id="membership_committee_kanban_view" model="ir.ui.view">
+<field name="name">membership.committee.kanban</field>
+<field name="model">membership.committee</field>
+<field name="arch" type="xml">
+<kanban>
+<field name="name" />
+<field name="date_start" />
+<field name="date_end" />
+<templates>
+<t t-name="kanban-box">
+<div t-attf-class="oe_kanban_card oe_kanban_global_click">
+<div class="row mb4">
+<div class="col-6">
+<strong><span><t t-esc="record.name.value"/></span></strong>
+</div>
+<div class="col-6 text-end">
+<span class="badge rounded-pill"><t t-esc="record.date_start.value"/></span>
+<span class="badge rounded-pill"><t t-esc="record.date_end.value"/></span>
+</div>
+</div>
+</div>
+</t>
+</templates>
+</kanban>
+</field>
+</record>
+
+<!-- Tree View Committee Template -->
+
+<record id="partner_membership_committee_template_tree_view" model="ir.ui.view">
+<field name="name">membership.partner.committee.tree</field>
+<field name="model">membership.partner.committee</field>
+<field name="arch" type="xml">
+<tree string="Member Committee List" editable="bottom">
+<field name="partner_id" />
+<field name="committee_id" />
+<field name="committee_tmp_id" />
+</tree>
+</field>
+</record>
+
+<record id="membership_committee_template_tree_view" model="ir.ui.view">
+<field name="name">membership.committee.template.tree</field>
+<field name="model">membership.committee.tmp</field>
+<field name="arch" type="xml">
+<tree string="Committee" editable="bottom">
+<field name="name" />
+<field name="description" />
+</tree>
+</field>
+</record>
+
+<record id="membership_committee_tmp_kanban_view" model="ir.ui.view">
+<field name="name">membership.committee.template.kanban</field>
+<field name="model">membership.committee.tmp</field>
+<field name="arch" type="xml">
+<kanban>
+<field name="name" />
+<field name="description" />
+<templates>
+<t t-name="kanban-box">
+<div t-attf-class="oe_kanban_card oe_kanban_global_click">
+<div class="row mb4">
+<div class="col-6">
+<strong><span><t t-esc="record.name.value"/></span></strong>
+</div>
+</div>
+</div>
+</t>
+</templates>
+</kanban>
+</field>
+</record>
+
+<record id="membership_committee_template_view_form" model="ir.ui.view">
+<field name="name">membership.committee.template.form</field>
+<field name="model">membership.committee.tmp</field>
+<field name="arch" type="xml">
+<form string="Committee Template">
+<sheet>
+<div class="oe_title">
+<label for="name"/>
+<h1><field name="name" class="oe_inline"/></h1>
+</div>
+<group>
+<field name="description" />
+</group>
+<group>
+<field name="raise_in_template" widget="boolean_toggle" string="Highlight in Snippet"/>
+</group>
+<group>
+<field name="committee_ids" widget="many2many_tags" />
+</group>
+<group>
+<field name="tmp_type_id" />
+</group>
+</sheet>
+</form>
+</field>
+</record>
+
+<record id="membership_committee_view_action" model="ir.actions.act_window">
+<field name="name">Membership Committee</field>
+<field name="res_model">membership.committee</field>
+<field name="view_mode">tree,form</field>
+<field name="domain">[]</field>
+<field name="context">{}</field>
+</record>
+
+<record id="membership_committee_template_view_action" model="ir.actions.act_window">
+<field name="name">Membership Committee Template</field>
+<field name="res_model">membership.committee.tmp</field>
+<field name="view_mode">kanban,form,tree</field>
+<field name="domain">[]</field>
+<field name="context">{}</field>
+</record>
+
+<record id="partner_membership_committee_template_view_action" model="ir.actions.act_window">
+<field name="name">Membership Committee List</field>
+<field name="res_model">membership.partner.committee</field>
+<field name="view_mode">tree</field>
+<field name="domain">[]</field>
+<field name="context">{}</field>
+</record>
+
+<!-- MEMBERSHIP RESUME LINE -->
+<record id="partner_membership_resume_line_tree_view" model="ir.ui.view">
+<field name="name">membership.resume.line.tree</field>
+<field name="model">membership.resume.line</field>
+<field name="arch" type="xml">
+<tree string="Member Resume List" editable="bottom">
+<field name="partner_id" />
+<field name="name" />
+<field name="date_start" />
+<field name="date_end" />
+<field name="description" />
+<field name="line_type_id" />
+</tree>
+</field>
+</record>
+
+<record id="partner_membership_resume_line_view_action" model="ir.actions.act_window">
+<field name="name">Membership Resume Line</field>
+<field name="res_model">membership.resume.line</field>
+<field name="view_mode">tree</field>
+<field name="domain">[]</field>
+<field name="context">{}</field>
+</record>
+
+<!-- Main menu / Configuration / Committee -->
+<menuitem name="Committee" id="membeship_committee_menu" sequence="10" parent="membership.menu_marketing_config_association"
+action="membership_committee_view_action" groups="base.group_user" />
+
+<!-- Main menu / Configuration / Committee Template-->
+<menuitem name="Committee Template" id="membeship_committee_tmp_menu" sequence="20"
+parent="membership.menu_marketing_config_association" action="membership_committee_template_view_action" groups="base.group_user" />
+
+<!-- Main menu / Configuration / Member Committee List-->
+<menuitem name="Member Committee List" id="parnter_membeship_committee_tmp_menu" sequence="30"
+parent="membership.menu_marketing_config_association" action="partner_membership_committee_template_view_action" groups="base.group_user" />
+
+<!-- FOR DEBUG  -->
+<!-- Main menu / Configuration / Member Resume Line-->
+
+<menuitem name="Member Resume" id="parnter_membeship_resume_line_menu" sequence="40"
+parent="membership.menu_marketing_config_association" action="partner_membership_resume_line_view_action" groups="base.group_user" />
+
+</odoo>
+---views\product_views.xml
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+<record id="product_template_member_view_form" model="ir.ui.view">
+<field name="name">product.template.member.view.form.inherit.website_membership</field>
+<field name="model">product.template</field>
+<field name="inherit_id" ref="membership.membership_products_form"/>
+<field name="arch" type="xml">
+<field name="list_price" position="before">
+<field name="membership_product_tmp_type" string='Date Type' />
+<field name="periodic_id"
+attrs="{'required': [('membership_product_tmp_type', '=', 'recurring')], 'invisible': [('membership_product_tmp_type', '!=', 'recurring')]}"/>
+</field>
+<field name="membership_date_to" position="attributes">
+<attribute name="required">0</attribute>
+</field>
+<field name="membership_date_from" position="attributes">
+<attribute name="required">0</attribute>
+</field>
+<xpath expr="//label[@for='membership_date_from']" position="attributes">
+<attribute name="attrs">{'invisible': [('membership_product_tmp_type', '=', 'recurring')]}</attribute>
+</xpath>
+<xpath expr="//div[@class='o_row']" position="attributes">
+<attribute name="attrs">{'invisible': [('membership_product_tmp_type', '=', 'recurring')]}</attribute>
+</xpath>
+</field>
+</record>
+</odoo>
+---views\website_partner_detail_templates.xml
+<?xml version="1.0" ?>
+<odoo><data>
+<!--Main page-->
+<template id="partner_page" name="Profile Page">
+<t t-call="website.layout">
+<div id="wrap" class="o_wprofile_wrap mt-0">
+<div id="oe_structure_website_event_location_1" class="oe_structure"/>
+<t t-if="partner.profile_tmp == 'tmp_1'">
+<t t-call="membership_profile.user_profile_header_v2"/>
+</t>
+<t t-elif="partner.profile_tmp == 'tmp_2'">
+<t t-call="membership_profile.user_profile_header"/>
+<t t-call="membership_profile.member_profile_about_me" />
+</t>
+<t t-else="">
+Don't set profile Template yet
+</t>
+<t t-if="partner.show_journal_committee">
+<t t-call="membership_profile.member_membership_timelime" />
+</t>
+<t t-call="membership_profile.user_profile_content"/>
+<div id="oe_structure_website_event_location_2" class="oe_structure mb-5"/>
+</div>
+</t>
+</template>
+
+<template id="user_profile_header_v2" name="Profile Page Header">
+<t t-call="membership_profile.sub_memu_member">
+<t t-set="breadcrumb_back_path" t-value="back_path"/>
+</t>
+<div class="container mt-5">
+<div class="row d-flex justify-content-center">
+<div class="card p-3 py-4">
+
+<div class="text-center">
+<img class="s_member_avatar_x2 rounded-circle" width="100" t-att-src="'/web/image/res.partner/' + str(partner.id) + '/avatar_512/'"/>
+</div>
+
+<div class="text-center mt-3">
+<div t-if="partner.parent_id" >
+<span class="bg-secondary p-1 px-4 rounded text-white" t-esc="partner.parent_id.name"/>
+</div>
+<h3 class="mt-2 mb-0">
+<span t-esc="partner.name"/>
+</h3>
+<div t-if="partner.function" class="lead mb-2">
+<i class="fa fa-briefcase fa-fw me-1"/><span class="fw-bold" t-esc="partner.function"/>
+</div>
+<div t-if="partner.registered_business" class="lead mb-2">
+Registered: <span class="fw-bold" t-esc="partner.registered_business"/>
+</div>
+
+<div t-if="partner.website_short_description" class="px-4 mt-1">
+<t t-call="membership_profile.member_profile_about_me" />
+</div>
+<div class="s_social_media text-center o_not_editable" data-snippet="s_social_media" data-name="Social Media" contenteditable="false">
+<t t-if="partner.social_ids">
+<t t-foreach="partner.social_ids" t-as="social">
+<t t-if="social.social_type not in ['zalo', 'tiktok']">
+<a t-attf-href="{{ social.link }}" t-attf-class="s_social_media_{{ social.social_type }} m-2" target="_blank">
+<i t-attf-class="fa fa-2x fa-{{ social.social_type }} m-1"/>
+</a>
+</t>
+<t t-else="">
+<t t-if="social.social_type == 'zalo'">
+<a t-attf-href="{{ social.link }}" t-attf-class="s_social_media_{{ social.social_type }}_2x m-2" target="_blank">
+<img src="/membership_profile/static/src/img/zalo.svg"/>
+</a>
+</t>
+<t t-elif="social.social_type == 'tiktok'">
+<a t-attf-href="{{ social.link }}" t-attf-class="s_social_media_{{ social.social_type }}_2x m-2" target="_blank">
+<img src="/membership_profile/static/src/img/tiktok.svg"/>
+</a>
+</t>
+</t>
+</t>
+</t>
+</div>
+<div class="w-20">
+<div>
+<img width="100%" class="pm_zoom s_member_avatar border border-1 rounded m-2"
+t-attf-src="data:image/png;base64,{{ partner.contact_qr.decode('utf-8') }}" alt="QR Code"/>
+</div>
+<a t-att-data-vcard="partner._get_vcard()" class="o_onclick_create_vcard btn btn-outline-primary px-4">
+<i class="fa fa-share-alt"/>
+<span class="d-none d-sm-inline">Save Contact</span>
+</a>
+<a target='_blank' t-att-href="partner.website" class="btn btn-primary px-4 ms-3">
+<i class="fa fa-globe"/>
+<span class="d-none d-sm-inline">Go to website</span>
+</a>
+</div>
+
+</div>
+
+</div>
+</div>
+
+</div>
+</template>
+
+<template id="user_profile_header" name="Profile Page Header">
+<div class="position-relative text-dark bg-secondary ">
+<t t-call="membership_profile.sub_memu_member">
+<t t-set="breadcrumb_back_path" t-value="back_path"/>
+</t>
+<!-- ==== HEADER ==== -->
+<div class="container-sm pb-3 pb-md-0 pt-2 pt-md-5">
+<div class="row">
+<!-- ==== Header Left ==== -->
+<div class="col-12 col-md-3 col-lg-4justify-content-around">
+<div class="shadow bg-body rounded oe_img_bg o_bg_img_center border bg-light pt128 pb128"
+t-attf-style="background-image: url(#{website.image_url(partner, 'avatar_512')});"/>
+</div>
+<!-- ==== Header Right ==== -->
+<div class="col-12 col-md-9 col-lg-8 d-flex flex-column">
+<div class="d-flex justify-content-between align-items-start mt-3 mt-sm-0">
+<h1 class="o_card_people_name">
+<span t-esc="partner.name"/>
+</h1>
+<div class="w-20">
+<a t-att-data-vcard="partner._contact_qr_code()" class="o_onclick_create_vcard btn border border-3 border-primary pm_rounded">
+<i class="fa fa-share-alt text-primary"/>
+<span class="d-none d-sm-inline text-primary">Save Contact</span>
+</a>
+<a target='_blank' t-att-href="partner.website" class="btn btn-primary pm_rounded">
+<i class="fa fa-globe text-white"/>
+<span class="d-none d-sm-inline text-white">Go to website</span>
+</a>
+</div>
+</div>
+<div class="d-flex flex-column justify-content-center flex-grow-1 mb-0 mb-md-5">
+<div t-if="partner.company_name" class="lead mb-2">
+<i class="fa fa-building-o fa-fw me-1"/><span class="fw-bold"> <t t-esc="partner.company_name"/> </span>
+</div>
+<div t-if="partner.function" class="lead mb-2">
+<i class="fa fa-briefcase fa-fw me-1"/><span class="fw-bold"> <t t-esc="partner.function"/></span>
+</div>
+<div class="lead mb-2">
+<i class="fa fa-briefcase fa-fw me-1"/>
+<t t-if="partner.registered_business">
+Registered: <span class="fw-bold" t-esc="partner.registered_business"/>
+</t>
+<t t-else="">
+Registered: <span class="fw-bold">(N/A)</span>
+</t>
+</div>
+<div t-if="partner.parent_id" class="lead mb-2">
+<i class="fa fa-building-o fa-fw me-1"/><span class="fw-bold"> <t t-esc="partner.parent_id.name"/> </span>
+</div>
+<div t-if="partner.parent_id" class="lead mb-2">
+<i class="fa fa-map-marker fa-fw me-1" />
+<small t-esc="partner._partner_full_address()"/>
+</div>
+<div class="col-12 pt8 pb8">
+<div class="s_social_media text-center o_not_editable" data-snippet="s_social_media" data-name="Social Media" contenteditable="false">
+<t t-if="partner.social_ids">
+<h5 class="s_social_media_title d-none d-sm-inline" contenteditable="true">Follow us</h5>
+<t t-foreach="partner.social_ids" t-as="social">
+<t t-if="social.social_type not in ['zalo', 'tiktok']">
+<a t-attf-href="{{ social.link }}" t-attf-class="s_social_media_{{ social.social_type }} m-2" target="_blank">
+<i t-attf-class="fa fa-2x fa-{{ social.social_type }} m-1"/>
+</a>
+</t>
+<t t-else="">
+<t t-if="social.social_type == 'zalo'">
+<a t-attf-href="{{ social.link }}" t-attf-class="s_social_media_{{ social.social_type }}_2x m-2" target="_blank">
+<img src="/membership_profile/static/src/img/zalo.svg"/>
+</a>
+</t>
+<t t-elif="social.social_type == 'tiktok'">
+<a t-attf-href="{{ social.link }}" t-attf-class="s_social_media_{{ social.social_type }}_2x m-2" target="_blank">
+<img src="/membership_profile/static/src/img/tiktok.svg"/>
+</a>
+</t>
+</t>
+</t>
+</t>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</template>
+
+<template id="member_profile_about_me" name="About Me">
+<div class="container-sm">
+<div class="alert alert-primary pt-3 mt-3" role="alert">
+<button class="btn btn-primary btn-sm d-md-none border" type="button"
+data-bs-toggle="collapse"
+data-bs-target="#o_wprofile_sidebar_collapse"
+aria-expanded="false" aria-controls="o_wprofile_sidebar_collapse">About me</button>
+<div class="collapse d-md-block" id="o_wprofile_sidebar_collapse">
+<div class="">
+<t t-raw="partner.website_short_description" />
+</div>
+</div>
+</div>
+</div>
+</template>
+
+<template id="user_profile_content" name="Profile Page Content">
+<!-- ==== CONTENT ==== -->
+<div class="container-sm">
+<t t-if="partner">
+<div t-field="partner.website_description"/>
+</t>
+</div>
+</template>
+
+<template id="sub_memu_member" name="Sub Menu layout">
+<div class="col-lg-5">
+<ol t-if="not edit_page" class="breadcrumb">
+<t t-if="breadcrumb_back_path">
+<li class="breadcrumb-item"><a t-attf-href="{{ breadcrumb_back_path }}">Our Members</a></li>
+</t>
+<t t-else="">
+<li class="breadcrumb-item"><a t-attf-href="/">Our Members</a></li>
+</t>
+<li class="breadcrumb-item active"><span t-field="partner.display_name"/></li>
+</ol>
+</div>
+</template>
+
+<template id="member_membership_timelime" name="Timeline Commttees">
+<section class="s_timeline pt24 pb48 o_not_editable">
+<div class="container">
+<div class="row">
+<div class="col-xl-8 mx-auto text-center">
+<div class="section-title">
+<h4 class="o_not_editable">Journey of <t t-esc="partner.name"/></h4>
+</div>
+<button class="btn btn-primary btn-sm d-md-none border mb-5 o_not_editable" type="button"
+data-bs-toggle="collapse"
+data-bs-target="#o_wprofile_committee_collapse"
+aria-expanded="false" aria-controls="o_wprofile_committee_collapse">Show Your journey</button>
+</div>
+</div>
+</div>
+<div class="container s_timeline_line">
+<div class="collapse d-md-block o_not_editable" id="o_wprofile_committee_collapse">
+<t t-foreach="partner._get_membership_resume()" t-as="resume" >
+<t t-if="resume['index'] % 2 == 1" >
+<div class="s_timeline_row d-block d-md-flex flex-row" data-name="Row">
+<div class="s_timeline_date"><span class="bg-white"><b><t t-esc="resume['month_year']"/></b></span></div>
+<div class="s_timeline_content d-flex">
+<div class="s_timeline_card s_card card bg-white w-100" data-name="Card" data-snippet="s_card">
+<div class="card-body">
+<h4 class="text-uppercase text-primary" t-esc="resume['name']"/>
+<span>(<t t-esc="resume['date_start']" /> - <t t-esc="resume['date_end']" />)</span>
+<span t-esc="resume['description']" />
+</div>
+</div>
+<i class="fa fa-1x fa-child bg-secondary rounded-circle s_timeline_icon"/>
+</div>
+<div class="s_timeline_content"/>
+</div>
+</t>
+<t t-else="">
+<div class="s_timeline_row d-block d-md-flex flex-row-reverse" data-name="Row">
+<div class="s_timeline_date"><span class="bg-white"><b><t t-esc="resume['month_year']"/></b></span></div>
+<div class="s_timeline_content d-flex">
+<div class="s_timeline_card s_card card bg-white w-100" data-name="Card" data-snippet="s_card">
+<div class="card-body">
+<h4 class="text-uppercase text-primary" t-esc="resume['name']"/>
+<span>(<t t-esc="resume['date_start']" /> - <t t-esc="resume['date_end']" />)</span>
+<span t-esc="resume['description']" />
+</div>
+</div>
+<i class="fa fa-1x fa-bolt bg-secondary rounded-circle s_timeline_icon"/>
+</div>
+<div class="s_timeline_content"/>
+</div>
+</t>
+</t>
+</div>
+</div>
+</section>
+</template>
+</data></odoo>
+---views\website_partner_member_templates.xml
+<?xml version="1.0" encoding="utf-8"?>
+<odoo><data>
+<template id="partner_member_page" name="Member Page">
+<t t-call="website.layout">
+<div class="h-100 d-flex flex-column">
+<!-- Drag/Drop Area -->
+<t t-set="opt_publice_member_show_social" t-value="is_view_active('membership_profile.opt_publice_member_show_social')"/>
+<t t-set="opt_publice_member_show_company" t-value="is_view_active('membership_profile.opt_publice_member_show_company')"/>
+<div id="oe_structure_website_event_location_1" class="oe_structure"/>
+<section class="o_public_member_index_content">
+<div id="wrap" class="o_wprofile_wrap mt-0 pb-5 bg-light">
+<t t-call="membership_profile.members_page_header"/>
+<t t-if="partners">
+<t t-call="membership_profile.partners_page_content"/>
+</t>
+</div>
+<div
+class="o_public_member_data_filter_wrapper"
+t-att-data-field-filter-member="current_website_filter_member"
+t-att-data-field-filter-member-key="current_website_filter_member_key"
+/>
+</section>
+<div class="products_pager d-flex justify-content-center pt-5 pb-3">
+<t t-call="website.pager"/>
+</div>
+<t t-if="not partners">
+<h1 class="display-1 d-flex justify-content-center text-primary pt-5"><i class="fa fa-search fa-fw"/></h1>
+<h2 class="text-black m-auto">No Member found</h2>
+</t>
+<!-- Drag/Drop Area -->
+<div id="oe_structure_website_event_location_2" class="oe_structure mb-5"/>
+</div>
+</t>
+</template>
+
+<template id="members_page_header" name="Page Header">
+<div class="o_public_member_member_header mb-n5 pb-5">
+<div class="container">
+<h1 class="py-4 text-white d-inline-block">All Members</h1>
+<div class="btn-toolbar flex-nowrap align-items-center justify-content-between mb-3">
+<!-- search -->
+<t t-call="membership_profile.search">
+<t t-set="search" t-value="search"/>
+<t t-set="_input_classes" t-valuef="border-0 text-bg-light"/>
+<t t-set="_form_classes" t-valuef="d-lg-inline d-inline"/>
+<t t-set="_submit_classes" t-valuef="btn btn btn-light"/>
+</t>
+<!-- Grid list option-->
+<!--t t-call="website_sale.add_grid_or_list_option" >
+<t t-set="_classes" t-valuef="d-flex ms-3"/>
+<t t-set="navClass" t-valuef="light"/>
+</t-->
+</div>
+</div>
+</div>
+</template>
+
+<template id="partners_page_content" name="Page Content">
+<div class="container mb32">
+<div class="row row-cols-1 row-cols-sm-2 row-cols-md-3">
+<div class="col" t-foreach="partners" t-as="partner">
+<t t-call="membership_profile.partners_card"></t>
+</div>
+</div>
+</div>
+</template>
+
+<template id="partners_card" name="Pages Partners">
+<div class="card w-100 text-center mb-5 border pm_rounded shadow-sm o_wprofile_pointer pm_card">
+<div class="">
+<div class="card-body pm_gradient" >
+<t t-if="partner.get('parent')">
+<div t-attf-class="gap-2 justify-content-sm-center #{(not opt_publice_member_show_company) and 'd-none'}">
+<ul class="d-flex list-unstyled mt-auto">
+<li class="pe-2">
+<img class="rounded-circle img-fluid border border-primary border-5 bg-white"
+style="width: 64px; height: 64px; object-fit: cover; cursor: pointer;"
+t-att-src="'/web/image/res.partner/%s/avatar_512/' % (partner['parent']['id'])"/>
+</li>
+<li class="d-flex align-items-center me-3">
+<!-- <span class="fa-fw bg-white me-1"><i class="fa fa-building-o"/></span> -->
+<small class="text-center text-light" t-esc="partner['parent']['name']" />
+</li>
+</ul>
+</div>
+</t>
+<div class="d-inline-block position-relative" t-attf-onclick="location.href='/partners/members/#{partner['slug']}';">
+<img class="rounded-circle img-fluid border border-primary border-5 bg-white"
+style="width: 128px; height: 128px; object-fit: cover; cursor: pointer;"
+t-att-src="'/web/image/res.partner/%s/avatar_512/' % (partner['id'])"/>
+</div>
+<h4 class="mt-2 mb-0" t-esc="partner['name']" t-attf-onclick="location.href='/partners/members/#{partner['slug']}';" style="cursor: pointer;"></h4>
+<div>
+<t t-if="partner['function']">
+<strong class="text-muted" t-esc="partner['function']"/>
+</t>
+<t t-else="">
+<strong class="text-muted">(Job position)</strong>
+</t>
+</div>
+<div>
+<t t-if="partner['registered_business']">
+Registered: <strong class="text-muted" t-esc="partner['registered_business']"/>
+</t>
+<t t-else="">
+Registered: <strong class="text-muted">(Job position)</strong>
+</t>
+</div>
+<span class="badge text-bg-primary fw-normal px-2" t-if="not partner['website_published']">Unpublished</span>
+</div>
+</div>
+<div class="gap-2 d-sm-flex justify-content-sm-center">
+<div t-attf-class="s_social_media text-center o_not_editable #{(not opt_publice_member_show_social) and 'd-none'}" data-snippet="s_social_media" data-name="Social Media" contenteditable="false">
+<t t-if="partner.get('socials')">
+<t t-foreach="partner['socials']" t-as="social">
+<a t-attf-href="{{ social['link'] }}" t-attf-class="s_social_media_{{social['type']}}" target="_blank">
+<i t-attf-class="fa fa-{{ social['type'] }} m-1"/>
+</a>
+</t>
+</t>
+</div>
+</div>
+<div class="row mx-0 text-nowrap">
+<div class="col-8">
+<div class="col-sm-12 p-2">
+<a t-att-data-vcard="partner['vcard']" class="o_onclick_create_vcard w-100 btn border border-3 border-primary pm_rounded">
+<i class="fa fa-share-alt text-primary"/>
+<span class="text-primary">Save Contact</span>
+</a>
+</div>
+<div class="col-sm-12 p-2">
+<a target='_blank' t-attf-href="{{ partner['website'] }}" class="w-100 btn btn-primary pm_rounded">
+<i class="fa fa-globe text-white"/>
+Go to website
+</a>
+</div>
+</div>
+<div class="col-4 p-2 d-sm-flex justify-content-sm-center">
+<div class="border border-1 rounded">
+<img width="100%" class="pm_zoom"
+t-attf-data-name="{{ partner['name'] }}"
+t-attf-src="data:image/png;base64,{{ partner['website_qr'] }}" alt="QR Code"/>
+</div>
+</div>
+</div>
+<div class="d-flex flex-row align-items-center p-2">
+<ul class="d-flex list-unstyled mt-auto">
+<li class="d-flex align-items-center me-3">
+<span class="bi me-2 pm_location_icon_circle"><i class="fa fa-map-marker"></i></span>
+<small t-esc="partner['address']"/>
+</li>
+</ul>
+</div>
+</div>
+</template>
+
+<template id="search" name="Search member">
+<form action="" method="get" class="navbar-search ms-auto pagination">
+<t t-call="website.website_search_box" />
+</form>
+</template>
+<template id="opt_publice_member_show_social" inherit_id="membership_profile.partners_page_content" active="True" name="Show social"/>
+<template id="opt_publice_member_show_company" inherit_id="membership_profile.partners_page_content" active="True" name="Show company"/>
+</data></odoo>
+---views\snippets\snippets.xml
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+<template id="snippet_list_member_options" inherit_id="website.snippet_options" name="Member snippet options">
+<xpath expr="." position="inside">
+<div data-js="PublicMemberTitleFilter" data-selector="main:has(.o_public_member_index_content)" data-no-check="true" groups="website.group_website_designer" string="Public Member Page"
+data-target=".o_public_member_data_filter_wrapper">
+<we-select string="Filter" data-name="filter_public_member">
+<t t-foreach="request.env['res.partner']._get_member_member_title_filter()" t-as="query_and_label">
+<we-button class="o_we_select_filter_member" t-att-data-select-filter-member="query_and_label[0]"><t t-esc="query_and_label[1]"/></we-button>
+</t>
+</we-select>
+<we-checkbox string="Social" class="o_we_sublevel_1" data-customize-website-views="membership_profile.opt_publice_member_show_social" data-no-preview="true" data-reload="/"/>
+<we-checkbox string="Company member" class="o_we_sublevel_1" data-customize-website-views="membership_profile.opt_publice_member_show_company" data-no-preview="true" data-reload="/"/>
+</div>
+</xpath>
+</template>
+<template id="external_snippets" inherit_id="website.snippets" priority="20">
+<xpath expr="//div[@id='snippet_effect']/div[hasclass('o_panel_body')]" position="inside">
+<t t-install="membership" string="Membership" t-thumbnail="/website/static/src/img/snippets_thumbs/s_event_upcoming_snippet.svg"/>
+</xpath>
+</template>
+</odoo>
+---views\snippets\s_dynamic_snippet_members.xml
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+<template id="s_public_members" name="Membership Snippet">
+<t t-call="website.s_dynamic_snippet_template">
+<t t-set="snippet_name" t-value="'s_public_members'"/>
+<t t-set="snippet_classes" t-value="'s_public_member_snippet s_public_member_snippet_temp1'"/>
+</t>
+</template>
+
+<!--SNIPPET OPTIONS -->
+
+<template id="s_public_member_options" inherit_id="website.snippet_options">
+<xpath expr="." position="inside">
+<t t-call="membership_profile.s_dynamic_member_snippet_options_template">
+<t t-set="snippet_name" t-value="'public_member_snippet'"/>
+<t t-set="snippet_selector" t-value="'.s_public_member_snippet'"/>
+</t>
+</xpath>
+</template>
+
+<template id="s_dynamic_member_snippet_options_template" inherit_id="website.s_dynamic_snippet_options_template">
+<xpath expr="//we-select[@data-name='filter_opt']" position="after">
+<we-many2many t-if="snippet_name == 'public_member_snippet'"
+string="Member Tags"
+data-name="member_tag_opt"
+data-model="res.partner"
+data-m2o-field="category_id"
+data-domain='[]'
+data-limit="10"
+data-set-tags=""
+data-attribute-name="filterByTagIds"
+data-no-preview="true"/>
+<we-select t-if="snippet_name == 'public_member_snippet'" string="Committee" data-no-preview="true" data-name="committee_id_opt" data-attribute-name="filterByCommitteeId">
+<we-button data-select-data-attribute="-1">None Committee</we-button>
+<!-- the committee list will be generated in js -->
+</we-select>
+</xpath>
+<xpath expr="//we-select[@data-name='template_opt']" position="after">
+<we-select t-if="snippet_name == 'public_member_snippet'" string="Template"
+data-no-widget-refresh="true" data-name="member_template_opt">
+<we-button data-select-class="s_public_member_snippet_temp1">Template 1</we-button>
+<we-button data-select-class="s_public_member_snippet_temp2">Template 2</we-button>
+<we-button data-select-class="s_public_member_snippet_temp3">Template 3</we-button>
+<we-button data-select-class="s_public_member_snippet_temp4">Template 4</we-button>
+</we-select>
+<we-select t-if="snippet_name == 'public_member_snippet'"
+string="Hover effect" class="o_we_sublevel_1 o_we_inline"
+data-no-widget-refresh="true" data-name="hover_effect_opt">
+<we-button data-select-class="">None</we-button>
+<we-button data-select-class="s_member_effect_scale">Scale</we-button>
+</we-select>
+<we-select t-if="snippet_name == 'public_member_snippet'"
+string="Member Address" class="o_we_sublevel_1 o_we_inline"
+data-no-widget-refresh="true" data-name="member_address_opt">
+<we-button data-select-class="">None</we-button>
+<we-button data-select-class="s_member_hidden_address">Hidden</we-button>
+</we-select>
+<we-checkbox t-if="snippet_name == 'public_member_snippet'"
+string="Hidden Social" class="o_we_sublevel_1 o_we_inline" data-select-class="s_member_hidden_social" />
+<we-checkbox t-if="snippet_name == 'public_member_snippet'"
+string="Hidden Contact" class="o_we_sublevel_1 o_we_inline" data-select-class="s_member_hidden_contact" />
+<we-checkbox t-if="snippet_name == 'public_member_snippet'"
+string="Hidden Business" class="o_we_sublevel_1 o_we_inline" data-select-class="s_member_hidden_business" />
+
+<we-checkbox t-if="snippet_name == 'public_member_snippet'"
+string="Hidden Search bar" class="o_we_sublevel_1 o_we_inline" data-select-class="s_hidden_search_bar" />
+</xpath>
+</template>
+
+<!--template id="s_public_members_snippets" inherit_id="website.snippets" priority="8">
+<xpath expr="//div[@id='snippet_effect']//t[@t-snippet][last()]" position="after">
+<t t-snippet="membership_profile.s_public_members" t-thumbnail="/membership_profile/static/src/img/snippets_thumbs/s_membership_snippet.svg"/>
+</xpath>
+</template-->
+
+<template id="s_public_members_snippets" inherit_id="website.snippets">
+<div id="snippet_structure" position="before">
+<div id="tp_snippet_dynamic" class="o_panel">
+<div class="o_panel_header">Membership Snippet</div>
+<div class="o_panel_body">
+<t t-snippet="membership_profile.s_public_members" t-thumbnail="/membership_profile/static/src/img/snippets_thumbs/s_membership_snippet.svg"/>
+</div>
+</div>
+</div>
+</template>
+
+<record id="membership_profile.s_public_member_000_js" model="ir.asset">
+<field name="name">Public Member 000 JS</field>
+<field name="bundle">web.assets_frontend</field>
+<field name="path">membership_profile/static/src/snippets/s_public_member/000.js</field>
+</record>
+
+<record id="membership_profile.s_public_member_000_xml" model="ir.asset">
+<field name="name">Public Member snippet 000 XML</field>
+<field name="bundle">web.assets_frontend</field>
+<field name="path">membership_profile/static/src/snippets/s_public_member/000.xml</field>
+</record>
+</odoo>

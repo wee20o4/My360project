@@ -71,9 +71,9 @@ class WebsitePartnerPublicPage(http.Controller):
     def partners_page(self, page=1, **kwargs):
         Partner = request.env['res.partner']
         dom = [('website_published', '=', True),
-               ('membership_state', 'in', ['paid', 'free', 'invoiced']),
-               ('membership_state', 'in', ['paid', 'free', 'invoiced']),
-               ('parent_id', '!=', False)]
+            ('membership_state', 'in', ['paid', 'free', 'invoiced']),
+            ('membership_state', 'in', ['paid', 'free', 'invoiced']),
+            ('parent_id', '!=', False)]
         current_time = datetime.now()
         dom = expression.AND([['&', ('membership_start', '<=', current_time), ('membership_stop', '>=', current_time)], dom])
         current_website = request.env['website'].get_current_website()
@@ -91,14 +91,25 @@ class WebsitePartnerPublicPage(http.Controller):
             'group_by': group_by or 'all',
         }
         if search_term:
-            dom = expression.AND([['|', ('name', 'ilike', search_term), ('commercial_company_name', 'ilike', search_term)], dom])
+            # Mở rộng tìm kiếm cho các trường name, function, registered_business, commercial_company_name, street, city
+            dom = expression.AND([[
+                '|', '|', '|', '|', '|','|','|',
+                ('name', 'ilike', search_term),
+                ('function', 'ilike', search_term),
+                ('registered_business', 'ilike', search_term),
+                ('commercial_company_name', 'ilike', search_term),
+                ('street', 'ilike', search_term),
+                ('city', 'ilike', search_term),
+                ('zip', 'ilike', search_term),
+                ('country_id.name', 'ilike', search_term)
+            ], dom])
 
         partner_count = Partner.sudo().search_count(dom)
         if partner_count:
             page_count = math.ceil(partner_count / self._partner_per_page)
             pager = request.website.pager(url="/partners/members", total=partner_count, page=page, step=self._partner_per_page,
-                                          scope=page_count) # if page_count < self._pager_max_pages else self._pager_max_pages)
-            partners = Partner.sudo().search(dom, limit=self._partner_per_page, offset=pager['offset']) # , order='karma DESC')
+                                        scope=page_count)
+            partners = Partner.sudo().search(dom, limit=self._partner_per_page, offset=pager['offset'])
             partner_values = self._prepare_all_partners_values(partners)
         else:
             partner_values = []
