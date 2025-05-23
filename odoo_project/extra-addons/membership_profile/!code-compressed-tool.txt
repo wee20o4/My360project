@@ -65,7 +65,6 @@ from odoo.osv import expression
 
 _logger = logging.getLogger(__name__)
 
-
 class WebsitePartnerPublicPage(http.Controller):
 _partner_per_page = 30
 
@@ -84,16 +83,14 @@ data = {
 'function': partner.function,
 'registered_business': partner.registered_business,
 'company_name': partner.company_id.name,
-'badge_count': 1, #len(user.badge_ids),
+'badge_count': 1,  # len(user.badge_ids),
 'website': partner.website,
 'website_published': partner.website_published,
-# 'img_data': partner.contact_qr.decode('utf-8'),
 'vcard': vcard,
 'address': partner._partner_full_address(),
 }
 if not partner.website_qr:
 partner._compute_website_qr_code()
-
 data.update({'website_qr': partner.website_qr.decode('utf-8')})
 if partner.parent_id:
 data['parent'] = {'id': partner.parent_id.id, 'name': partner.parent_id.name}
@@ -102,10 +99,10 @@ data['registered_business'] = partner.parent_id.registered_business
 else:
 data['parent'] = dict()
 if socials:
-socials = []
+socials_list = []
 for social in socials:
-socials.append({'type': social.social_type, 'link': social.link})
-data['socials'] = socials
+socials_list.append({'type': social.social_type, 'link': social.link})
+data['socials'] = socials_list
 else:
 data['socials'] = []
 partner_values.append(data)
@@ -124,10 +121,11 @@ return render_values
 
 def partners_page(self, page=1, **kwargs):
 Partner = request.env['res.partner']
-dom = [('website_published', '=', True),
+dom = [
+('website_published', '=', True),
 ('membership_state', 'in', ['paid', 'free', 'invoiced']),
-('membership_state', 'in', ['paid', 'free', 'invoiced']),
-('parent_id', '!=', False)]
+('parent_id', '!=', False),
+]
 current_time = datetime.now()
 dom = expression.AND([['&', ('membership_start', '<=', current_time), ('membership_stop', '>=', current_time)], dom])
 current_website = request.env['website'].get_current_website()
@@ -145,25 +143,30 @@ render_values = {
 'group_by': group_by or 'all',
 }
 if search_term:
-# Mở rộng tìm kiếm cho các trường name, function, registered_business, commercial_company_name, street, city
+normalized_search = Partner._normalize_search_term(search_term)
 dom = expression.AND([[
-'|', '|', '|', '|', '|','|','|','|',
-('name', 'ilike', search_term),
-('function', 'ilike', search_term),
-('registered_business', 'ilike', search_term),
-('commercial_company_name', 'ilike', search_term),
-('street', 'ilike', search_term),
-('city', 'ilike', search_term),
-('zip', 'ilike', search_term),
-('parent_id.registered_business', 'ilike', search_term),
-('country_id.name', 'ilike', search_term)
+'|', '|', '|', '|', '|', '|', '|', '|',
+('normalized_name', 'ilike', f'%{normalized_search}%'),
+('normalized_function', 'ilike', f'%{normalized_search}%'),
+('normalized_registered_business', 'ilike', f'%{normalized_search}%'),
+('normalized_commercial_company_name', 'ilike', f'%{normalized_search}%'),
+('normalized_street', 'ilike', f'%{normalized_search}%'),
+('normalized_city', 'ilike', f'%{normalized_search}%'),
+('normalized_zip', 'ilike', f'%{normalized_search}%'),
+('normalized_parent_registered_business', 'ilike', f'%{normalized_search}%'),
+('normalized_country_name', 'ilike', f'%{normalized_search}%'),
 ], dom])
 
 partner_count = Partner.sudo().search_count(dom)
 if partner_count:
 page_count = math.ceil(partner_count / self._partner_per_page)
-pager = request.website.pager(url="/partners/members", total=partner_count, page=page, step=self._partner_per_page,
-scope=page_count)
+pager = request.website.pager(
+url="/partners/members",
+total=partner_count,
+page=page,
+step=self._partner_per_page,
+scope=page_count
+)
 partners = Partner.sudo().search(dom, limit=self._partner_per_page, offset=pager['offset'])
 partner_values = self._prepare_all_partners_values(partners)
 else:
@@ -250,10 +253,6 @@ result['committee_data_end'] = committee.date_end.strftime("%d/%m/%Y")
 return result
 
 def partner_committee_data(self, partner_committees):
-# Raise position in template
-# Because col of row fixed 3
-# Position raise just between, We have 2, 5, 8, ... is the position must raise
-# TODO: Currently, raise level have has only 3 element, order will be wrong if increase element of level raise
 position_raise = 2
 result = list()
 len_committee = len(partner_committees)
@@ -273,9 +272,7 @@ partner_data['committee'].update({
 else:
 partner_data['committee']['order'] = position_raise
 result.append(partner_data)
-
 return result
-
 ---controllers\__init__.py
 from .  import main
 ---data\committee_data.xml
@@ -1692,16 +1689,18 @@ def _compute_name_periodic(self):
 for record in self:
 record.name = "%s %s" % (record.number_periodic, record.periodicity.title())
 ---models\res_partner.py
+# -*- coding: utf-8 -*-
+from odoo import models, fields, api, _
+from odoo.exceptions import UserError, ValidationError
+from odoo.addons.http_routing.models.ir_http import slug
+
+import re
 import logging
 import base64
 import io
 import qrcode
-
+from unidecode import unidecode
 from werkzeug import urls
-
-from odoo.exceptions import UserError, ValidationError
-from odoo import api, models, fields, _
-from odoo.addons.http_routing.models.ir_http import slug
 
 _logger = logging.getLogger(__name__)
 
@@ -1710,7 +1709,6 @@ import vobject
 except ImportError:
 _logger.warning("`vobject` Python module not found, iCal file generation disabled. Consider installing this module if you want to generate iCal files")
 vobject = None
-
 
 VCARD_FORMAT = '''
 BEGIN:VCARD
@@ -1727,10 +1725,8 @@ URL:{website}
 END:VCARD
 '''
 
-
 def create_vcard(name, phone_work=None, phone_home=None, email=None, org=None,
 title=None, address=None, url=None, another_urls=None):
-
 def split_name(full_name):
 names = full_name.split()
 if len(names) > 1:
@@ -1781,8 +1777,6 @@ return vcard.serialize()
 except Exception as e:
 _logger.error('ERROR when create Vcard %s ' % str(e))
 raise UserError(e)
-# return None
-
 
 class ResPartner(models.Model):
 _inherit = 'res.partner'
@@ -1792,21 +1786,71 @@ store=True, readonly=True, compute='_compute_qr_code')
 website_qr = fields.Binary('Website QR', attachment=False,
 store=True, readonly=True, compute='_compute_website_qr_code')
 social_ids = fields.One2many('member.social', 'partner_id', string='Social links')
-# Only set for company
 registered_business = fields.Char(string=_('Registered Business'), required=False)
-# Use when company register multi business and multi contract
 specific_business = fields.Boolean(default=False)
-
 profile_tmp = fields.Selection(string=_('Profile Template'), selection=[('tmp_1', 'Template 1'), ('tmp_2', 'Template 2')],
 default='tmp_1', required=True)
-
 committee_ids = fields.One2many(comodel_name='membership.partner.committee',
 inverse_name='partner_id', copy=False, string='Committees')
 is_committee = fields.Boolean(compute='_compute_committee', store=True, copy=False)
 show_journal_committee = fields.Boolean(default=True)
-
 membership_resume_ids = fields.One2many(comodel_name='membership.resume.line',
 inverse_name='partner_id', copy=False, string='Membership Resume')
+# Áp dụng tìm kiếm tương đối
+normalized_name = fields.Char(
+string='Normalized Name',
+compute='_compute_normalized_fields',
+store=True,
+index=True,
+)
+normalized_function = fields.Char(
+string='Normalized Function',
+compute='_compute_normalized_fields',
+store=True,
+index=True,
+)
+normalized_registered_business = fields.Char(
+string='Normalized Registered Business',
+compute='_compute_normalized_fields',
+store=True,
+index=True,
+)
+normalized_commercial_company_name = fields.Char(
+string='Normalized Commercial Company Name',
+compute='_compute_normalized_fields',
+store=True,
+index=True,
+)
+normalized_street = fields.Char(
+string='Normalized Street',
+compute='_compute_normalized_fields',
+store=True,
+index=True,
+)
+normalized_city = fields.Char(
+string='Normalized City',
+compute='_compute_normalized_fields',
+store=True,
+index=True,
+)
+normalized_zip = fields.Char(
+string='Normalized Zip',
+compute='_compute_normalized_fields',
+store=True,
+index=True,
+)
+normalized_parent_registered_business = fields.Char(
+string='Normalized Parent Registered Business',
+compute='_compute_normalized_fields',
+store=True,
+index=True,
+)
+normalized_country_name = fields.Char(
+string='Normalized Country Name',
+compute='_compute_normalized_fields',
+store=True,
+index=True,
+)
 
 @api.constrains('specific_business')
 def _specific_business_required_company_multi_contract(self):
@@ -1832,10 +1876,36 @@ record.is_committee = True
 else:
 record.is_committee = False
 
+@api.depends('name', 'function', 'registered_business', 'commercial_company_name', 'street', 'city', 'zip', 'parent_id.registered_business', 'country_id.name')
+def _compute_normalized_fields(self):
+for partner in self:
+def normalize_field(value):
+if not value:
+return ''
+cleaned = re.sub(r'\s+', ' ', re.sub(r'[^\w\s]', '', value)).strip()
+return unidecode(cleaned).lower()
+
+partner.normalized_name = normalize_field(partner.name)
+partner.normalized_function = normalize_field(partner.function)
+partner.normalized_registered_business = normalize_field(partner.registered_business)
+partner.normalized_commercial_company_name = normalize_field(partner.commercial_company_name)
+partner.normalized_street = normalize_field(partner.street)
+partner.normalized_city = normalize_field(partner.city)
+partner.normalized_zip = normalize_field(partner.zip)
+partner.normalized_parent_registered_business = normalize_field(partner.parent_id.registered_business)
+partner.normalized_country_name = normalize_field(partner.country_id.name)
+
+def _normalize_search_term(self, term):
+"""Normalize search term: remove special chars, extra spaces, and accents."""
+if not term:
+return term
+cleaned = re.sub(r'\s+', ' ', re.sub(r'[^\w\s]', '', term)).strip()
+return unidecode(cleaned).lower()
+
 def _get_committe_journal(self):
 self.ensure_one()
 result = []
-if len(self.committee_ids) < 0:
+if not self.committee_ids:  # Fixed: Changed len < 0 to not self.committee_ids
 return result
 
 committee_index = 0
@@ -1919,7 +1989,6 @@ temp = io.BytesIO()
 img.save(temp, format='PNG')
 record.website_qr = base64.b64encode(temp.getvalue())
 
-# Defined fields depends of contact QR code
 FIELDS_QR = ['name', 'function', 'website', 'email', 'phone', 'mobile', 'social_ids']
 
 @api.depends(lambda self: self.FIELDS_QR)
@@ -1964,40 +2033,27 @@ else:
 vcard_data = record._contact_qr_code()
 return vcard_data
 
-# TODO: remove function if dont need
 def _contact_qr_code(self):
-
 self.ensure_one()
-''' Example:
-BEGIN:VCARD
-VERSION:4.0
-FN:John Doe
-N:Doe;John;;;
-ORG:ABC Corporation
-TITLE:CEO
-EMAIL:john.doe@example.com
-TEL;TYPE=work,voice:(123) 456-7890
-TEL;TYPE=home,voice:(987) 654-3210
-ADR;TYPE=work:;;123 Main St;Anytown;CA;12345;USA
-ADR;TYPE=home:;;456 Elm St;Othertown;CA;54321;USA
-URL;TYPE=work:http://www.example.com
-URL;TYPE=home:http://www.personalwebsite.com
-X-SOCIALPROFILE;TYPE=linkedin:http://www.linkedin.com/in/johndoe
-
-REV:2023-08-06T12:00:00Z
-END:VCARD
-'''
 more_url = ""
 for social in self.social_ids:
 if social.link:
 more_url += f"X-SOCIALPROFILE;TYPE={social.social_type}:{social.link}\n"
-value_qr = VCARD_FORMAT.format(name=self.full_name_vcard(), home_phone=self.phone,
-mobile_phone=self.mobile, email=self.email, company_name=self.parent_id.name,
-function=self.function, address=self.full_address_vcard(), more_url=more_url, website=self.website)
+value_qr = VCARD_FORMAT.format(
+name=self.full_name_vcard(),
+home_phone=self.phone,
+mobile_phone=self.mobile,
+email=self.email,
+company_name=self.parent_id.name,
+function=self.function,
+address=self.full_address_vcard(),
+more_url=more_url,
+website=self.website
+)
 return value_qr
 
 def full_address_vcard(self):
-"""The mothod return full adress of fomart Vcard"""
+"""The method return full address of format Vcard"""
 self.ensure_one()
 partner = self
 address = ""

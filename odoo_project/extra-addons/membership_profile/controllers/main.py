@@ -91,7 +91,16 @@ class WebsitePartnerPublicPage(http.Controller):
         if search_term:
             normalized_search = Partner._normalize_search_term(search_term)
             dom = expression.AND([[
+                '|', '|', '|', '|', '|', '|', '|', '|',
                 ('normalized_name', 'ilike', f'%{normalized_search}%'),
+                ('normalized_function', 'ilike', f'%{normalized_search}%'),
+                ('normalized_registered_business', 'ilike', f'%{normalized_search}%'),
+                ('normalized_commercial_company_name', 'ilike', f'%{normalized_search}%'),
+                ('normalized_street', 'ilike', f'%{normalized_search}%'),
+                ('normalized_city', 'ilike', f'%{normalized_search}%'),
+                ('normalized_zip', 'ilike', f'%{normalized_search}%'),
+                ('normalized_parent_registered_business', 'ilike', f'%{normalized_search}%'),
+                ('normalized_country_name', 'ilike', f'%{normalized_search}%'),
             ], dom])
 
         partner_count = Partner.sudo().search_count(dom)
@@ -124,9 +133,7 @@ class WebsitePartnerPublicPage(http.Controller):
             })
         return render_values
 
-    @http.route(['/partners/members/<partner_id>'],
-
-type='http', auth="public", website=True)
+    @http.route(['/partners/members/<partner_id>'], type='http', auth="public", website=True)
     def partners_detail(self, partner_id, **post):
         back_url = post.get('back_url', None)
         _, partner_id = unslug(partner_id)

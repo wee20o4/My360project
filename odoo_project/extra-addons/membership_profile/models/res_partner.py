@@ -105,9 +105,58 @@ class ResPartner(models.Model):
     show_journal_committee = fields.Boolean(default=True)
     membership_resume_ids = fields.One2many(comodel_name='membership.resume.line',
                                            inverse_name='partner_id', copy=False, string='Membership Resume')
+    # Áp dụng tìm kiếm tương đối
     normalized_name = fields.Char(
         string='Normalized Name',
-        compute='_compute_normalized_name',
+        compute='_compute_normalized_fields',
+        store=True,
+        index=True,
+    )
+    normalized_function = fields.Char(
+        string='Normalized Function',
+        compute='_compute_normalized_fields',
+        store=True,
+        index=True,
+    )
+    normalized_registered_business = fields.Char(
+        string='Normalized Registered Business',
+        compute='_compute_normalized_fields',
+        store=True,
+        index=True,
+    )
+    normalized_commercial_company_name = fields.Char(
+        string='Normalized Commercial Company Name',
+        compute='_compute_normalized_fields',
+        store=True,
+        index=True,
+    )
+    normalized_street = fields.Char(
+        string='Normalized Street',
+        compute='_compute_normalized_fields',
+        store=True,
+        index=True,
+    )
+    normalized_city = fields.Char(
+        string='Normalized City',
+        compute='_compute_normalized_fields',
+        store=True,
+        index=True,
+    )
+    normalized_zip = fields.Char(
+        string='Normalized Zip',
+        compute='_compute_normalized_fields',
+        store=True,
+        index=True,
+    )
+    normalized_parent_registered_business = fields.Char(
+        string='Normalized Parent Registered Business',
+        compute='_compute_normalized_fields',
+        store=True,
+        index=True,
+    )
+    normalized_country_name = fields.Char(
+        string='Normalized Country Name',
+        compute='_compute_normalized_fields',
         store=True,
         index=True,
     )
@@ -137,22 +186,23 @@ class ResPartner(models.Model):
                 record.is_committee = False
 
     @api.depends('name', 'function', 'registered_business', 'commercial_company_name', 'street', 'city', 'zip', 'parent_id.registered_business', 'country_id.name')
-    def _compute_normalized_name(self):
+    def _compute_normalized_fields(self):
         for partner in self:
-            fields_to_normalize = [
-                partner.name or '',
-                partner.function or '',
-                partner.registered_business or '',
-                partner.commercial_company_name or '',
-                partner.street or '',
-                partner.city or '',
-                partner.zip or '',
-                partner.parent_id.registered_business or '',
-                partner.country_id.name or '',
-            ]
-            combined = ' '.join([f for f in fields_to_normalize if f])
-            cleaned = re.sub(r'\s+', ' ', re.sub(r'[^\w\s]', '', combined)).strip()
-            partner.normalized_name = unidecode(cleaned).lower() if cleaned else ''
+            def normalize_field(value):
+                if not value:
+                    return ''
+                cleaned = re.sub(r'\s+', ' ', re.sub(r'[^\w\s]', '', value)).strip()
+                return unidecode(cleaned).lower()
+
+            partner.normalized_name = normalize_field(partner.name)
+            partner.normalized_function = normalize_field(partner.function)
+            partner.normalized_registered_business = normalize_field(partner.registered_business)
+            partner.normalized_commercial_company_name = normalize_field(partner.commercial_company_name)
+            partner.normalized_street = normalize_field(partner.street)
+            partner.normalized_city = normalize_field(partner.city)
+            partner.normalized_zip = normalize_field(partner.zip)
+            partner.normalized_parent_registered_business = normalize_field(partner.parent_id.registered_business)
+            partner.normalized_country_name = normalize_field(partner.country_id.name)
 
     def _normalize_search_term(self, term):
         """Normalize search term: remove special chars, extra spaces, and accents."""
@@ -164,7 +214,7 @@ class ResPartner(models.Model):
     def _get_committe_journal(self):
         self.ensure_one()
         result = []
-        if len(self.committee_ids) < 0:  # Note: This condition seems incorrect (len < 0 is impossible)
+        if not self.committee_ids:  # Fixed: Changed len < 0 to not self.committee_ids
             return result
 
         committee_index = 0
