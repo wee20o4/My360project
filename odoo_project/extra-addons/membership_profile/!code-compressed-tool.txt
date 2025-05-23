@@ -147,7 +147,7 @@ render_values = {
 if search_term:
 # Mở rộng tìm kiếm cho các trường name, function, registered_business, commercial_company_name, street, city
 dom = expression.AND([[
-'|', '|', '|', '|', '|','|','|',
+'|', '|', '|', '|', '|','|','|','|',
 ('name', 'ilike', search_term),
 ('function', 'ilike', search_term),
 ('registered_business', 'ilike', search_term),
@@ -155,6 +155,7 @@ dom = expression.AND([[
 ('street', 'ilike', search_term),
 ('city', 'ilike', search_term),
 ('zip', 'ilike', search_term),
+('parent_id.registered_business', 'ilike', search_term),
 ('country_id.name', 'ilike', search_term)
 ], dom])
 

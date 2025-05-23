@@ -1,13 +1,15 @@
+# -*- coding: utf-8 -*-
+from odoo import models, fields, api, _
+from odoo.exceptions import UserError, ValidationError
+from odoo.addons.http_routing.models.ir_http import slug
+
+import re
 import logging
 import base64
 import io
 import qrcode
-
+from unidecode import unidecode
 from werkzeug import urls
-
-from odoo.exceptions import UserError, ValidationError
-from odoo import api, models, fields, _
-from odoo.addons.http_routing.models.ir_http import slug
 
 _logger = logging.getLogger(__name__)
 
@@ -16,7 +18,6 @@ try:
 except ImportError:
     _logger.warning("`vobject` Python module not found, iCal file generation disabled. Consider installing this module if you want to generate iCal files")
     vobject = None
-
 
 VCARD_FORMAT = '''
 BEGIN:VCARD
@@ -33,10 +34,8 @@ URL:{website}
 END:VCARD
 '''
 
-
 def create_vcard(name, phone_work=None, phone_home=None, email=None, org=None,
                  title=None, address=None, url=None, another_urls=None):
-
     def split_name(full_name):
         names = full_name.split()
         if len(names) > 1:
@@ -87,32 +86,31 @@ def create_vcard(name, phone_work=None, phone_home=None, email=None, org=None,
     except Exception as e:
         _logger.error('ERROR when create Vcard %s ' % str(e))
         raise UserError(e)
-        # return None
-
 
 class ResPartner(models.Model):
     _inherit = 'res.partner'
 
     contact_qr = fields.Binary('Contact QR', attachment=False,
-                               store=True, readonly=True, compute='_compute_qr_code')
+                              store=True, readonly=True, compute='_compute_qr_code')
     website_qr = fields.Binary('Website QR', attachment=False,
-                               store=True, readonly=True, compute='_compute_website_qr_code')
+                              store=True, readonly=True, compute='_compute_website_qr_code')
     social_ids = fields.One2many('member.social', 'partner_id', string='Social links')
-    # Only set for company
     registered_business = fields.Char(string=_('Registered Business'), required=False)
-    # Use when company register multi business and multi contract
     specific_business = fields.Boolean(default=False)
-
     profile_tmp = fields.Selection(string=_('Profile Template'), selection=[('tmp_1', 'Template 1'), ('tmp_2', 'Template 2')],
-                                   default='tmp_1', required=True)
-
+                                  default='tmp_1', required=True)
     committee_ids = fields.One2many(comodel_name='membership.partner.committee',
-                                    inverse_name='partner_id', copy=False, string='Committees')
+                                   inverse_name='partner_id', copy=False, string='Committees')
     is_committee = fields.Boolean(compute='_compute_committee', store=True, copy=False)
     show_journal_committee = fields.Boolean(default=True)
-
     membership_resume_ids = fields.One2many(comodel_name='membership.resume.line',
-                                    inverse_name='partner_id', copy=False, string='Membership Resume')
+                                           inverse_name='partner_id', copy=False, string='Membership Resume')
+    normalized_name = fields.Char(
+        string='Normalized Name',
+        compute='_compute_normalized_name',
+        store=True,
+        index=True,
+    )
 
     @api.constrains('specific_business')
     def _specific_business_required_company_multi_contract(self):
@@ -129,7 +127,7 @@ class ResPartner(models.Model):
         self.ensure_one()
         current = self.show_journal_committee
         self.write({'show_journal_committee': not current})
-    
+
     @api.depends('committee_ids')
     def _compute_committee(self):
         for record in self:
@@ -138,10 +136,35 @@ class ResPartner(models.Model):
             else:
                 record.is_committee = False
 
+    @api.depends('name', 'function', 'registered_business', 'commercial_company_name', 'street', 'city', 'zip', 'parent_id.registered_business', 'country_id.name')
+    def _compute_normalized_name(self):
+        for partner in self:
+            fields_to_normalize = [
+                partner.name or '',
+                partner.function or '',
+                partner.registered_business or '',
+                partner.commercial_company_name or '',
+                partner.street or '',
+                partner.city or '',
+                partner.zip or '',
+                partner.parent_id.registered_business or '',
+                partner.country_id.name or '',
+            ]
+            combined = ' '.join([f for f in fields_to_normalize if f])
+            cleaned = re.sub(r'\s+', ' ', re.sub(r'[^\w\s]', '', combined)).strip()
+            partner.normalized_name = unidecode(cleaned).lower() if cleaned else ''
+
+    def _normalize_search_term(self, term):
+        """Normalize search term: remove special chars, extra spaces, and accents."""
+        if not term:
+            return term
+        cleaned = re.sub(r'\s+', ' ', re.sub(r'[^\w\s]', '', term)).strip()
+        return unidecode(cleaned).lower()
+
     def _get_committe_journal(self):
         self.ensure_one()
         result = []
-        if len(self.committee_ids) < 0:
+        if len(self.committee_ids) < 0:  # Note: This condition seems incorrect (len < 0 is impossible)
             return result
 
         committee_index = 0
@@ -156,7 +179,7 @@ class ResPartner(models.Model):
                 'date_end': committee.committee_id.date_end.strftime("%d/%m/%Y"),
             })
         return result
-    
+
     def _get_membership_resume(self):
         self.ensure_one()
         result = []
@@ -199,7 +222,7 @@ class ResPartner(models.Model):
         if partner.country_id:
             address += partner.country_id.name
         return address
-    
+
     def _partner_dict_address(self) -> dict:
         self.ensure_one()
         partner = self
@@ -210,22 +233,21 @@ class ResPartner(models.Model):
             'code': partner.zip,
             'country': partner.country_id.name,
         }
-        
+
     def _compute_website_qr_code(self):
         for record in self:
             url = urls.url_join(record.get_base_url(), record.website_url)
             qr = qrcode.QRCode(version=1,
-                            error_correction=qrcode.constants.ERROR_CORRECT_L,
-                            box_size=10,
-                            border=4)
+                               error_correction=qrcode.constants.ERROR_CORRECT_L,
+                               box_size=10,
+                               border=4)
             qr.add_data(url.encode('utf-8'))
             qr.make(fit=True)
             img = qr.make_image(fill_color="black", back_color="white")
             temp = io.BytesIO()
             img.save(temp, format='PNG')
             record.website_qr = base64.b64encode(temp.getvalue())
-            
-    # Defined fields depends of contact QR code
+
     FIELDS_QR = ['name', 'function', 'website', 'email', 'phone', 'mobile', 'social_ids']
 
     @api.depends(lambda self: self.FIELDS_QR)
@@ -249,7 +271,7 @@ class ResPartner(models.Model):
     def refresh_new_imge_qr_code(self):
         self.ensure_one()
         self._compute_qr_code()
-        
+
     def _get_vcard(self):
         self.ensure_one()
         record = self
@@ -263,47 +285,34 @@ class ResPartner(models.Model):
             address = record._partner_dict_address()
             url = record.website
             vcard_data = create_vcard(name, phone_work, phone_home, email, org,
-                                        title, address, url, another_urls=record.social_ids)
+                                      title, address, url, another_urls=record.social_ids)
             if not vcard_data:
                 vcard_data = record._contact_qr_code()
         else:
             vcard_data = record._contact_qr_code()
         return vcard_data
-            
-    # TODO: remove function if dont need
+
     def _contact_qr_code(self):
-
         self.ensure_one()
-        ''' Example:
-        BEGIN:VCARD
-        VERSION:4.0
-        FN:John Doe
-        N:Doe;John;;;
-        ORG:ABC Corporation
-        TITLE:CEO
-        EMAIL:john.doe@example.com
-        TEL;TYPE=work,voice:(123) 456-7890
-        TEL;TYPE=home,voice:(987) 654-3210
-        ADR;TYPE=work:;;123 Main St;Anytown;CA;12345;USA
-        ADR;TYPE=home:;;456 Elm St;Othertown;CA;54321;USA
-        URL;TYPE=work:http://www.example.com
-        URL;TYPE=home:http://www.personalwebsite.com
-        X-SOCIALPROFILE;TYPE=linkedin:http://www.linkedin.com/in/johndoe
-
-        REV:2023-08-06T12:00:00Z
-        END:VCARD
-        '''
         more_url = ""
         for social in self.social_ids:
             if social.link:
                 more_url += f"X-SOCIALPROFILE;TYPE={social.social_type}:{social.link}\n"
-        value_qr = VCARD_FORMAT.format(name=self.full_name_vcard(), home_phone=self.phone,
-                                       mobile_phone=self.mobile, email=self.email, company_name=self.parent_id.name,
-                                       function=self.function, address=self.full_address_vcard(), more_url=more_url, website=self.website)
+        value_qr = VCARD_FORMAT.format(
+            name=self.full_name_vcard(),
+            home_phone=self.phone,
+            mobile_phone=self.mobile,
+            email=self.email,
+            company_name=self.parent_id.name,
+            function=self.function,
+            address=self.full_address_vcard(),
+            more_url=more_url,
+            website=self.website
+        )
         return value_qr
-    
+
     def full_address_vcard(self):
-        """The mothod return full adress of fomart Vcard"""
+        """The method return full address of format Vcard"""
         self.ensure_one()
         partner = self
         address = ""
@@ -320,7 +329,7 @@ class ResPartner(models.Model):
         if partner.country_id:
             address += ";" + partner.country_id.name
         return address
-    
+
     def full_name_vcard(self):
         self.ensure_one()
         return self.name.replace(" ", ";")

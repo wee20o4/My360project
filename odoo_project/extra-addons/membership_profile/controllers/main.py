@@ -11,7 +11,6 @@ from odoo.osv import expression
 
 _logger = logging.getLogger(__name__)
 
-
 class WebsitePartnerPublicPage(http.Controller):
     _partner_per_page = 30
 
@@ -30,32 +29,30 @@ class WebsitePartnerPublicPage(http.Controller):
                 'function': partner.function,
                 'registered_business': partner.registered_business,
                 'company_name': partner.company_id.name,
-                'badge_count': 1, #len(user.badge_ids),
+                'badge_count': 1,  # len(user.badge_ids),
                 'website': partner.website,
                 'website_published': partner.website_published,
-                # 'img_data': partner.contact_qr.decode('utf-8'),
                 'vcard': vcard,
                 'address': partner._partner_full_address(),
             }
             if not partner.website_qr:
                 partner._compute_website_qr_code()
-
             data.update({'website_qr': partner.website_qr.decode('utf-8')})
             if partner.parent_id:
                 data['parent'] = {'id': partner.parent_id.id, 'name': partner.parent_id.name}
-                if not partner.specific_business:
-                    data['registered_business'] = partner.parent_id.registered_business
+            if not partner.specific_business:
+                data['registered_business'] = partner.parent_id.registered_business
             else:
                 data['parent'] = dict()
             if socials:
-                socials = []
+                socials_list = []
                 for social in socials:
-                    socials.append({'type': social.social_type, 'link': social.link})
-                data['socials'] = socials
+                    socials_list.append({'type': social.social_type, 'link': social.link})
+                data['socials'] = socials_list
             else:
                 data['socials'] = []
             partner_values.append(data)
-        return partner_values 
+        return partner_values
 
     @http.route(['/partners/members', '/partners/members/page/<int:page>'], type='http', auth="user", website=True, csrf=False)
     def view_all_partners_page(self, page=1, **kwargs):
@@ -67,13 +64,14 @@ class WebsitePartnerPublicPage(http.Controller):
     def snippet_partner(self, page=1, **kwargs):
         render_values = self.partners_page(page=page, filter_title=False, **kwargs)
         return render_values
-    
+
     def partners_page(self, page=1, **kwargs):
         Partner = request.env['res.partner']
-        dom = [('website_published', '=', True),
+        dom = [
+            ('website_published', '=', True),
             ('membership_state', 'in', ['paid', 'free', 'invoiced']),
-            ('membership_state', 'in', ['paid', 'free', 'invoiced']),
-            ('parent_id', '!=', False)]
+            ('parent_id', '!=', False),
+        ]
         current_time = datetime.now()
         dom = expression.AND([['&', ('membership_start', '<=', current_time), ('membership_stop', '>=', current_time)], dom])
         current_website = request.env['website'].get_current_website()
@@ -91,31 +89,27 @@ class WebsitePartnerPublicPage(http.Controller):
             'group_by': group_by or 'all',
         }
         if search_term:
-            # Mở rộng tìm kiếm cho các trường name, function, registered_business, commercial_company_name, street, city
+            normalized_search = Partner._normalize_search_term(search_term)
             dom = expression.AND([[
-                '|', '|', '|', '|', '|','|','|','|',
-                ('name', 'ilike', search_term),
-                ('function', 'ilike', search_term),
-                ('registered_business', 'ilike', search_term),
-                ('commercial_company_name', 'ilike', search_term),
-                ('street', 'ilike', search_term),
-                ('city', 'ilike', search_term),
-                ('zip', 'ilike', search_term),
-                ('parent_id.registered_business', 'ilike', search_term),
-                ('country_id.name', 'ilike', search_term)
+                ('normalized_name', 'ilike', f'%{normalized_search}%'),
             ], dom])
 
         partner_count = Partner.sudo().search_count(dom)
         if partner_count:
             page_count = math.ceil(partner_count / self._partner_per_page)
-            pager = request.website.pager(url="/partners/members", total=partner_count, page=page, step=self._partner_per_page,
-                                        scope=page_count)
+            pager = request.website.pager(
+                url="/partners/members",
+                total=partner_count,
+                page=page,
+                step=self._partner_per_page,
+                scope=page_count
+            )
             partners = Partner.sudo().search(dom, limit=self._partner_per_page, offset=pager['offset'])
             partner_values = self._prepare_all_partners_values(partners)
         else:
             partner_values = []
             pager = {'page_count': 0}
-            
+
         dict_title_filter = dict(Partner.sudo()._get_member_member_title_filter())
 
         render_values.update({
@@ -129,8 +123,10 @@ class WebsitePartnerPublicPage(http.Controller):
                 'current_website_filter_member_key': current_website.value_field_filter_member,
             })
         return render_values
-        
-    @http.route(['/partners/members/<partner_id>'], type='http', auth="public", website=True)
+
+    @http.route(['/partners/members/<partner_id>'],
+
+type='http', auth="public", website=True)
     def partners_detail(self, partner_id, **post):
         back_url = post.get('back_url', None)
         _, partner_id = unslug(partner_id)
@@ -147,7 +143,7 @@ class WebsitePartnerPublicPage(http.Controller):
                 }
                 return request.render("membership_profile.partner_page", values)
         return request.not_found()
-    
+
     @http.route(['/website/set-value-filter-member'], type='json', auth='user', website=True)
     def set_value_filter_member(self, **post):
         if not request.env.user.has_group('website.group_website_restricted_editor'):
@@ -194,12 +190,8 @@ class WebsitePartnerPublicPage(http.Controller):
         result['committee_data_start'] = committee.date_start.strftime("%d/%m/%Y")
         result['committee_data_end'] = committee.date_end.strftime("%d/%m/%Y")
         return result
-        
+
     def partner_committee_data(self, partner_committees):
-        # Raise position in template
-        # Because col of row fixed 3
-        # Position raise just between, We have 2, 5, 8, ... is the position must raise
-        # TODO: Currently, raise level have has only 3 element, order will be wrong if increase element of level raise
         position_raise = 2
         result = list()
         len_committee = len(partner_committees)
@@ -219,6 +211,4 @@ class WebsitePartnerPublicPage(http.Controller):
             else:
                 partner_data['committee']['order'] = position_raise
             result.append(partner_data)
-
         return result
-            
